@@ -69,7 +69,7 @@ a { color: var(--accent); }
 .field > label, .field > .label { display: block; font-weight: 600; margin-bottom: 6px; }
 .req { color: var(--red); font-weight: 400; }
 .hint { color: var(--muted); font-size: 14px; margin: 4px 0 0; }
-input[type=text], input[type=email], input[type=password], input[type=tel], select, textarea {
+input[type=text], input[type=email], input[type=password], input[type=tel], input[type=search], select, textarea {
   width: 100%; font: inherit; font-size: 16px; color: var(--ink); background: #fff;
   border: 1px solid #cdd3dd; border-radius: 10px; padding: 12px 14px; min-height: 48px;
 }
