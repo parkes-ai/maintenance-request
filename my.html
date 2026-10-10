@@ -24,6 +24,16 @@
   <div style="margin-bottom:16px"><a class="btn" href="/#request">새 요청 남기기</a></div>
   <div class="msg err" id="err" hidden></div>
   <div class="list" id="list"><div class="empty">불러오는 중…</div></div>
+
+  <details class="leave" id="leave">
+    <summary>회원 탈퇴</summary>
+    <form id="leaveForm" novalidate>
+      <p>탈퇴하면 계정이 바로 지워지고 이 이메일로 다시 로그인할 수 없어요. 이미 남긴 요청은 처리를 위해 <a href="/privacy">개인정보 처리방침</a>의 보관 기간 동안 남아 있어요.</p>
+      <div class="field"><label for="leavePw">비밀번호 확인</label><input type="password" id="leavePw" autocomplete="current-password" required></div>
+      <div class="msg err" id="leaveErr" role="alert" hidden></div>
+      <button class="btn danger block" id="leaveBtn">탈퇴하기</button>
+    </form>
+  </details>
 </main>
 <script>
 (function () {
@@ -37,6 +47,28 @@
 
   const s = Auth.session();
   if (!s) { location.replace('/login'); return; }
+
+  $('leaveForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const err = $('leaveErr'), btn = $('leaveBtn');
+    err.hidden = true;
+    const password = $('leavePw').value;
+    if (!password) { err.textContent = '비밀번호를 적어 주세요.'; err.hidden = false; return; }
+    if (!confirm('정말 탈퇴할까요? 되돌릴 수 없어요.')) return;
+    btn.disabled = true;
+    try {
+      const r = await fetch('/api/delete-account', {
+        method: 'POST', headers: { Authorization: `Bearer ${s.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (r.status === 401) { Auth.clear(); location.replace('/login'); return; }
+      if (!r.ok) throw new Error(d.error || '탈퇴하지 못했어요.');
+      Auth.clear();
+      document.querySelector('main').innerHTML = '<h1 class="page-title">탈퇴했어요</h1><p>계정을 지웠어요. 요청은 로그인 없이도 언제든 남길 수 있어요.</p><a class="btn" href="/">첫 화면으로</a>';
+      Auth.nav();
+    } catch (x) { err.textContent = x.message; err.hidden = false; btn.disabled = false; }
+  });
 
   fetch('/api/my-requests', { headers: { Authorization: `Bearer ${s.access_token}` } })
     .then(async (r) => {

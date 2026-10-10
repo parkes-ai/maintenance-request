@@ -163,3 +163,10 @@ input:focus, select:focus, textarea:focus, .btn:focus-visible, .chip input:focus
   .toast { animation: toastIn .2s ease-out; }
   @keyframes toastIn { from { opacity: 0; transform: translate(-50%, 8px); } }
 }
+
+/* 회원 탈퇴: 눈에 덜 띄게 접어 둔다 */
+.leave { margin: 48px 0 40px; border-top: 1px solid var(--line); padding-top: 16px; }
+.leave summary { cursor: pointer; color: var(--muted); font-size: 15px; padding: 8px 0; }
+.leave form { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; margin-top: 8px; }
+.leave form p { margin: 0 0 16px; font-size: 15px; color: var(--muted); }
+.btn.danger { background: var(--red); }
