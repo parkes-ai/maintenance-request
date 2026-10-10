@@ -6,11 +6,16 @@
 <meta name="robots" content="noindex, nofollow">
 <title>요청함 관리</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@500;700&display=swap">
 <link rel="stylesheet" href="/assets/style.css">
 <style>
-  .count { display: flex; align-items: baseline; gap: 10px; margin: 24px 0 16px; }
-  .count b { font-size: 44px; line-height: 1; color: var(--accent); }
-  .count.zero b { color: var(--muted); }
+  .sum { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 24px 0 12px; }
+  .sum button { text-align: left; background: var(--card); border: 1px solid var(--line); border-top: 4px solid var(--c); border-radius: 10px; padding: 10px 12px; font: inherit; color: var(--muted); cursor: pointer; }
+  .sum button b { display: block; font: 700 30px/1.1 var(--head); color: var(--ink); font-variant-numeric: tabular-nums; }
+  .sum button.on { background: var(--ink); color: #fff; border-color: var(--ink); border-top-color: var(--c); }
+  .sum button.on b { color: #fff; }
+  .sum .all { grid-column: 1 / -1; border-top-width: 1px; padding: 8px 12px; text-align: center; }
   .filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
   .filters button { min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); font: inherit; font-size: 15px; cursor: pointer; color: var(--ink); }
   .filters button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
@@ -41,12 +46,11 @@
   </form>
 
   <section id="box" hidden>
-    <div class="count" id="count"><b id="newNum">0</b><span>건의 새 요청</span></div>
-    <div class="filters" id="fStatus">
-      <button type="button" data-v="" class="on">전체</button>
-      <button type="button" data-v="새 요청">새 요청</button>
-      <button type="button" data-v="처리 중">처리 중</button>
-      <button type="button" data-v="완료">완료</button>
+    <div class="sum" id="fStatus">
+      <button type="button" data-v="새 요청" style="--c:var(--accent)"><b data-n="새 요청">0</b>새 요청</button>
+      <button type="button" data-v="처리 중" style="--c:var(--amber)"><b data-n="처리 중">0</b>처리 중</button>
+      <button type="button" data-v="완료" style="--c:var(--green)"><b data-n="완료">0</b>완료</button>
+      <button type="button" data-v="" class="all on">전체 보기</button>
     </div>
     <div class="filters" id="fUrg" style="margin-bottom:16px">
       <button type="button" data-v="" class="on">급한 정도 전체</button>
@@ -106,9 +110,7 @@
   }
 
   function draw() {
-    const n = rows.filter((r) => r.status === '새 요청').length;
-    $('newNum').textContent = n;
-    $('count').classList.toggle('zero', n === 0);
+    document.querySelectorAll('[data-n]').forEach((el) => { el.textContent = rows.filter((r) => r.status === el.dataset.n).length; });
     const list = rows.filter((r) => (!filter.status || r.status === filter.status) && (!filter.urgency || r.urgency === filter.urgency));
     if (!list.length) { $('list').innerHTML = '<div class="empty">보여 줄 요청이 없어요.</div>'; return; }
     $('list').innerHTML = list.map((r) => `
@@ -137,10 +139,18 @@
     const b = e.target.closest('[data-s][data-id]');
     if (!b || b.classList.contains('on')) return;
     b.disabled = true;
-    try { await api('PATCH', { id: Number(b.dataset.id), status: b.dataset.s }); await load(); }
+    try { await api('PATCH', { id: Number(b.dataset.id), status: b.dataset.s }); await load(); toast(`#${b.dataset.id} 요청을 '${b.dataset.s}'(으)로 바꿨어요`); }
     catch (err) { if (err.message !== 'locked') { $('err').textContent = err.message; $('err').hidden = false; } }
     finally { b.disabled = false; }
   });
+
+  function toast(text) {
+    document.querySelectorAll('.toast').forEach((t) => t.remove());
+    const t = document.createElement('div');
+    t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = text;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 2400);
+  }
 
   const bindFilter = (id, key) => $(id).addEventListener('click', (e) => {
     const b = e.target.closest('button'); if (!b) return;
