@@ -62,7 +62,10 @@
   .mem-count { margin: 20px 0 12px; color: var(--muted); }
   .mem-count b { font: 700 30px/1 var(--head); color: var(--ink); margin-right: 6px; font-variant-numeric: tabular-nums; }
   .member { display: grid; gap: 2px; }
-  .member .email { font-weight: 600; word-break: break-all; }
+  .member .email { font: inherit; font-weight: 600; word-break: break-all; text-align: left; padding: 6px 0; background: none; border: 0; color: var(--accent); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+  .user-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 16px 0 0; padding: 10px 14px; border-radius: 10px; background: var(--accent-soft); color: var(--ink); font-size: 15px; }
+  .user-bar b { word-break: break-all; }
+  .user-bar button { flex: none; min-height: 40px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--accent); background: var(--card); color: var(--accent); font: inherit; font-size: 14px; cursor: pointer; }
   .member .when { color: var(--muted); font-size: 14px; }
   .mem-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
   .reqs { flex: none; color: var(--muted); font-size: 14px; white-space: nowrap; }
@@ -92,6 +95,7 @@
       <button type="button" role="tab" id="tabMem" aria-selected="false" aria-controls="memView">회원</button>
     </div>
     <div id="reqView" role="tabpanel" aria-labelledby="tabReq">
+    <div class="user-bar" id="userBar" hidden><span><b id="userEmail"></b> 회원의 요청만 보는 중</span><button type="button" id="userClear">모든 요청 보기</button></div>
     <button type="button" class="late-bar" id="late" hidden><span>48시간 넘게 기다린 새 요청 <b id="lateN">0</b>건</span><span id="lateGo">모아 보기</span></button>
     <div class="sum" id="fStatus">
       <button type="button" data-v="새 요청" style="--c:var(--accent)"><b data-n="새 요청">0</b>새 요청</button>
@@ -143,7 +147,7 @@
   const setPw = (v) => { try { v ? sessionStorage.setItem(KEY, v) : sessionStorage.removeItem(KEY); } catch {} };
   let rows = [];
   let memPw = getPw();
-  const filter = { status: '', urgency: '', late: false };
+  const filter = { status: '', urgency: '', late: false, user: '', userEmail: '' };
   // 새 요청인 채로 48시간이 지났는지
   const LATE_MS = 48 * 3600 * 1000;
   const isLate = (r) => r.status === '새 요청' && Date.now() - new Date(r.created_at) > LATE_MS;
@@ -262,8 +266,14 @@
       const v = f.elements[0].value;
       if (r && v !== (r.memo ?? '')) drafts[r.id] = v;
     });
-    const list = shown = rows.filter((r) => (!filter.late || isLate(r)) && (!filter.status || r.status === filter.status) && (!filter.urgency || r.urgency === filter.urgency));
-    if (!list.length) { $('list').innerHTML = '<div class="empty">보여 줄 요청이 없어요.</div>'; return; }
+    $('userBar').hidden = !filter.user;
+    $('userEmail').textContent = filter.userEmail;
+    const list = shown = rows.filter((r) => (!filter.user || r.user_id === filter.user) && (!filter.late || isLate(r)) && (!filter.status || r.status === filter.status) && (!filter.urgency || r.urgency === filter.urgency));
+    if (!list.length) {
+      const onlyUser = filter.user && !filter.status && !filter.urgency && !filter.late;
+      $('list').innerHTML = `<div class="empty">${onlyUser ? '이 회원이 로그인하고 남긴 요청이 없어요.' : '보여 줄 요청이 없어요.'}</div>`;
+      return;
+    }
     $('list').innerHTML = list.map((r) => `
       <article class="item${r.urgency === '업무 중단 중' ? ' stop' : ''}${isLate(r) ? ' late' : ''}">
         <div class="meta">
@@ -370,7 +380,7 @@
       $('memList').innerHTML = members.length
         ? members.map((m) => `
           <article class="item member">
-            <div class="mem-top"><span class="email">${esc(m.email)}</span><span class="reqs">${m.requests ? `요청 <b>${m.requests}</b>건${m.open ? ` <small>(진행 중 ${m.open})</small>` : ''}` : '요청 없음'}</span></div>
+            <div class="mem-top"><button type="button" class="email" data-uid="${esc(m.id)}" data-email="${esc(m.email)}" title="이 회원의 요청만 보기">${esc(m.email)}</button><span class="reqs">${m.requests ? `요청 <b>${m.requests}</b>건${m.open ? ` <small>(진행 중 ${m.open})</small>` : ''}` : '요청 없음'}</span></div>
             <span class="when">가입 ${day(m.created_at)}${m.confirmed ? '' : ' · 메일 확인 전'}</span>
             <span class="when">마지막 로그인 ${m.last_sign_in_at ? day(m.last_sign_in_at) : '없음'}</span>
           </article>`).join('')
@@ -387,6 +397,14 @@
     $('memView').hidden = t !== 'mem';
     if (t === 'mem') loadMembers();
   }
+  // 회원 이메일을 누르면 요청함에서 그 회원의 요청만
+  $('memList').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-uid]'); if (!b) return;
+    filter.user = b.dataset.uid; filter.userEmail = b.dataset.email;
+    showTab('req'); draw(); scrollTo(0, 0);
+  });
+  $('userClear').onclick = () => { filter.user = ''; filter.userEmail = ''; draw(); };
+
   $('tabReq').onclick = () => showTab('req');
   $('tabMem').onclick = () => showTab('mem');
 

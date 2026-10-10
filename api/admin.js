@@ -31,7 +31,7 @@ module.exports = async (req, res) => {
     }
     const members = (d.users || [])
       .map((u) => ({
-        email: u.email, created_at: u.created_at, last_sign_in_at: u.last_sign_in_at || null, confirmed: Boolean(u.email_confirmed_at || u.confirmed_at),
+        id: u.id, email: u.email, created_at: u.created_at, last_sign_in_at: u.last_sign_in_at || null, confirmed: Boolean(u.email_confirmed_at || u.confirmed_at),
         requests: (count[u.id] || {}).total || 0, open: (count[u.id] || {}).open || 0,
       }))
       .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
