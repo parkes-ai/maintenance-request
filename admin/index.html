@@ -63,6 +63,10 @@
   .mem-count b { font: 700 30px/1 var(--head); color: var(--ink); margin-right: 6px; font-variant-numeric: tabular-nums; }
   .member { display: grid; gap: 2px; }
   .member .email { font: inherit; font-weight: 600; word-break: break-all; text-align: left; padding: 6px 0; background: none; border: 0; color: var(--accent); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+  .search { margin: 0 0 10px; }
+  .search input { min-height: 48px; }
+  .search .hint { margin: 4px 0 0; min-height: 0; }
+  .search .hint:empty { display: none; }
   .user-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 16px 0 0; padding: 10px 14px; border-radius: 10px; background: var(--accent-soft); color: var(--ink); font-size: 15px; }
   .user-bar b { word-break: break-all; }
   .user-bar button { flex: none; min-height: 40px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--accent); background: var(--card); color: var(--accent); font: inherit; font-size: 14px; cursor: pointer; }
@@ -109,6 +113,10 @@
       <div class="axis"><span id="axisFrom"></span><span>오늘</span></div>
       <details><summary>표로 보기</summary><table id="trendTable"><thead><tr><th>날짜</th><th>접수</th></tr></thead><tbody></tbody></table></details>
     </section>
+    <div class="search">
+      <input type="search" id="q" placeholder="검색: 회사·이름·연락처·내용·메모, #접수번호" aria-label="요청 검색" autocomplete="off">
+      <p class="hint" id="qInfo" aria-live="polite"></p>
+    </div>
     <div class="filters" id="fUrg" style="margin-bottom:16px">
       <button type="button" data-v="" class="on">급한 정도 전체</button>
       <button type="button" data-v="업무 중단 중">업무 중단 중</button>
@@ -147,7 +155,14 @@
   const setPw = (v) => { try { v ? sessionStorage.setItem(KEY, v) : sessionStorage.removeItem(KEY); } catch {} };
   let rows = [];
   let memPw = getPw();
-  const filter = { status: '', urgency: '', late: false, user: '', userEmail: '' };
+  const filter = { status: '', urgency: '', late: false, user: '', userEmail: '', q: '' };
+  // 검색: 띄어 쓴 단어가 모두 들어 있어야 맞음. "#12"는 접수 번호로 찾는다
+  const matches = (r) => {
+    const words = filter.q.toLowerCase().split(/\s+/).filter(Boolean);
+    if (!words.length) return true;
+    const text = [r.company, r.name, r.contact, r.program, r.message, r.memo, r.kind].join(' ').toLowerCase();
+    return words.every((w) => (/^#\d+$/.test(w) ? String(r.id) === w.slice(1) : text.includes(w)));
+  };
   // 새 요청인 채로 48시간이 지났는지
   const LATE_MS = 48 * 3600 * 1000;
   const isLate = (r) => r.status === '새 요청' && Date.now() - new Date(r.created_at) > LATE_MS;
@@ -268,12 +283,15 @@
     });
     $('userBar').hidden = !filter.user;
     $('userEmail').textContent = filter.userEmail;
-    const list = shown = rows.filter((r) => (!filter.user || r.user_id === filter.user) && (!filter.late || isLate(r)) && (!filter.status || r.status === filter.status) && (!filter.urgency || r.urgency === filter.urgency));
+    const list = shown = rows.filter((r) => matches(r) && (!filter.user || r.user_id === filter.user) &&(!filter.late || isLate(r)) && (!filter.status || r.status === filter.status) && (!filter.urgency || r.urgency === filter.urgency));
     if (!list.length) {
-      const onlyUser = filter.user && !filter.status && !filter.urgency && !filter.late;
-      $('list').innerHTML = `<div class="empty">${onlyUser ? '이 회원이 로그인하고 남긴 요청이 없어요.' : '보여 줄 요청이 없어요.'}</div>`;
+      const onlyUser = filter.user && !filter.status && !filter.urgency && !filter.late && !filter.q.trim();
+      $('qInfo').textContent = filter.q.trim() ? '검색 결과 0건' : '';
+      $('list').innerHTML = `<div class="empty">${onlyUser ? '이 회원이 로그인하고 남긴 요청이 없어요.'
+        : filter.q.trim() ? `‘${esc(filter.q.trim())}’에 맞는 요청이 없어요. 다른 단어로 찾거나 위 필터를 풀어 보세요.` : '보여 줄 요청이 없어요.'}</div>`;
       return;
     }
+    $('qInfo').textContent = filter.q.trim() ? `검색 결과 ${list.length}건` : '';
     $('list').innerHTML = list.map((r) => `
       <article class="item${r.urgency === '업무 중단 중' ? ' stop' : ''}${isLate(r) ? ' late' : ''}">
         <div class="meta">
@@ -403,7 +421,13 @@
     filter.user = b.dataset.uid; filter.userEmail = b.dataset.email;
     showTab('req'); draw(); scrollTo(0, 0);
   });
-  $('userClear').onclick = () => { filter.user = ''; filter.userEmail = ''; draw(); };
+  // 적는 대로 바로 걸러 보기 (입력이 멈추면 다시 그린다)
+  let qTimer;
+  $('q').addEventListener('input', () => {
+    clearTimeout(qTimer);
+    qTimer = setTimeout(() => { filter.q = $('q').value; draw(); }, 150);
+  });
+  $('userClear').onclick =() => { filter.user = ''; filter.userEmail = ''; draw(); };
 
   $('tabReq').onclick = () => showTab('req');
   $('tabMem').onclick = () => showTab('mem');
