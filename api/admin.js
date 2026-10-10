@@ -38,6 +38,16 @@ module.exports = async (req, res) => {
     return res.status(200).json({ members });
   }
 
+  // 여러 요청의 변경 기록 한 번에 (CSV 내려받기용, 최대 500건, 최근 것이 위)
+  if (req.method === 'POST' && req.query && req.query.view === 'edits') {
+    const ids = [...new Set((readBody(req).ids || []).map(Number))];
+    if (!ids.length) return res.status(200).json({ edits: [] });
+    if (ids.length > 500 || !ids.every(Number.isInteger)) return res.status(400).json({ error: '잘못된 요청이에요.' });
+    const r = await fetch(`${SB_URL}/rest/v1/request_edits?request_id=in.(${ids.join(',')})&select=request_id,edited_at,changes&order=edited_at.desc&limit=10000`, { headers: sbHeaders() });
+    if (!r.ok) return res.status(500).json({ error: '변경 기록을 불러오지 못했어요.' });
+    return res.status(200).json({ edits: await r.json() });
+  }
+
   // 요청 하나의 수정 기록 (최근 것이 위)
   if (req.method === 'GET' && req.query && req.query.view === 'edits') {
     const id = Number(req.query.id);
