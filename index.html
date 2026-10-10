@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>유지보수 요청 접수</title>
+<meta name="description" content="납품 프로그램의 오류·수정 요청을 글과 화면 캡처로 남겨 주세요.">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="/assets/style.css">
+<script src="/assets/config.js"></script>
+<script src="/assets/auth.js"></script>
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <a class="brand" href="/" data-site-name>유지보수 요청 접수</a>
+  <nav class="nav" id="nav"></nav>
+</div></header>
+
+<main class="wrap">
+  <section class="hero">
+    <h1>프로그램에 문제가 생겼나요?</h1>
+    <p>화면을 찍어 남겨 주시면 확인 후 연락드릴게요.</p>
+    <a class="btn" href="#request">유지보수 요청하기</a>
+  </section>
+
+  <ul class="facts">
+    <li><b>답변</b><span>요청을 확인한 뒤 연락드려요.</span></li>
+    <li><b>비용</b><span>계약에 따라 안내해요. 무상·유상 범위는 확인 후 알려 드려요.</span></li>
+    <li><b>급할 땐</b><span><a data-phone>전화번호 준비 중</a></span></li>
+  </ul>
+
+  <section class="card" id="request">
+    <form id="form" novalidate>
+      <h2>유지보수 요청</h2>
+      <p class="sub" id="loginHint">로그인하고 남기면 처리 상태를 <a href="/my">내 요청 내역</a>에서 볼 수 있어요.</p>
+
+      <div class="row2">
+        <div class="field">
+          <label for="company">회사 이름 <span class="req">*</span></label>
+          <input type="text" id="company" name="company" maxlength="100" autocomplete="organization" required>
+        </div>
+        <div class="field">
+          <label for="name">이름 <span class="req">*</span></label>
+          <input type="text" id="name" name="name" maxlength="50" autocomplete="name" required>
+        </div>
+      </div>
+      <div class="field">
+        <label for="contact">연락처 <span class="req">*</span></label>
+        <input type="text" id="contact" name="contact" maxlength="100" placeholder="전화번호 또는 이메일" required>
+      </div>
+
+      <div class="field" id="programField">
+        <label for="program">어느 프로그램인가요? <span class="req">*</span></label>
+        <input type="text" id="program" name="program" maxlength="100" placeholder="프로그램 이름" required>
+      </div>
+
+      <div class="field">
+        <span class="label">요청 종류 <span class="req">*</span></span>
+        <div class="chips">
+          <label class="chip"><input type="radio" name="kind" value="오류"><span>오류</span></label>
+          <label class="chip"><input type="radio" name="kind" value="수정 요청"><span>수정 요청</span></label>
+          <label class="chip"><input type="radio" name="kind" value="사용 문의"><span>사용 문의</span></label>
+        </div>
+      </div>
+
+      <div class="field">
+        <span class="label">급한 정도 <span class="req">*</span></span>
+        <div class="chips">
+          <label class="chip"><input type="radio" name="urgency" value="보통" checked><span>보통</span></label>
+          <label class="chip"><input type="radio" name="urgency" value="급함"><span>급함</span></label>
+          <label class="chip danger"><input type="radio" name="urgency" value="업무 중단 중"><span>업무 중단 중</span></label>
+        </div>
+        <p class="hint" id="stopHint" hidden>업무가 멈췄다면 요청을 남긴 뒤 전화도 함께 주세요: <a data-phone>전화번호 준비 중</a></p>
+      </div>
+
+      <div class="field">
+        <label for="message">무슨 일이 있었나요? <span class="req">*</span></label>
+        <textarea id="message" name="message" maxlength="3000" placeholder="예) 오늘 아침부터 주문 화면에서 [저장]을 누르면 오류 창이 떠요." required></textarea>
+      </div>
+
+      <div class="field">
+        <span class="label">화면 캡처 <span class="hint" style="display:inline">(최대 3장)</span></span>
+        <div class="drop" id="drop">
+          <button type="button" class="btn ghost" id="pick">사진·캡처 고르기</button>
+          <div class="hint">PC에서는 캡처한 뒤 이 화면에서 Ctrl+V로 붙여 넣어도 돼요.</div>
+          <input type="file" id="file" accept="image/*" multiple hidden>
+        </div>
+        <div class="thumbs" id="thumbs"></div>
+      </div>
+
+      <div class="trap" aria-hidden="true">
+        <label>웹사이트 <input type="text" name="website" tabindex="-1" autocomplete="off"></label>
+      </div>
+
+      <label class="consent">
+        <input type="checkbox" id="consent">
+        <span>(필수) 요청 처리를 위해 회사 이름·이름·연락처·요청 내용·화면 캡처를 수집·이용하는 데 동의해요. 보관 기간 등은 <a href="/privacy" target="_blank">개인정보 처리방침</a>을 따라요.</span>
+      </label>
+
+      <div class="msg err" id="err" role="alert" hidden></div>
+      <div style="margin-top:16px"><button class="btn block" id="submit" type="submit">요청 보내기</button></div>
+    </form>
+
+    <div class="done" id="done" hidden>
+      <h2>요청이 접수됐어요</h2>
+      <div class="num" id="doneNum"></div>
+      <p class="sub">확인 후 연락드릴게요.<br><span id="doneMore"></span></p>
+      <button type="button" class="btn ghost" id="again">다른 요청 남기기</button>
+    </div>
+  </section>
+</main>
+
+<footer class="wrap foot">
+  <div>급할 땐 전화: <a data-phone>전화번호 준비 중</a></div>
+  <div><a href="/privacy">개인정보 처리방침</a></div>
+</footer>
+
+<script>
+(function () {
+  const S = window.SITE || {};
+  const $ = (id) => document.getElementById(id);
+  const form = $('form');
+  const MAX = 3;
+  let shots = []; // { data: base64, url: 미리보기 }
+
+  // 프로그램 목록이 있으면 고르는 칸으로
+  if (Array.isArray(S.programs) && S.programs.length) {
+    const sel = document.createElement('select');
+    sel.id = 'program'; sel.name = 'program'; sel.required = true;
+    sel.innerHTML = '<option value="">골라 주세요</option>'
+      + S.programs.map((p) => `<option>${p.replace(/</g, '&lt;')}</option>`).join('')
+      + '<option value="기타">기타</option>';
+    $('program').replaceWith(sel);
+  }
+
+  // 로그인 상태면 안내 문구를 바꾼다
+  const sess = Auth.session();
+  if (sess) $('loginHint').innerHTML = '로그인되어 있어요. 이 요청은 <a href="/my">내 요청 내역</a>에서 처리 상태를 볼 수 있어요.';
+
+  form.urgency.forEach((r) => r.addEventListener('change', () => {
+    $('stopHint').hidden = form.urgency.value !== '업무 중단 중';
+  }));
+
+  // 캡처를 가볍게 줄여서(긴 쪽 1600px, JPEG) 보낸다
+  async function shrink(file) {
+    const img = await new Promise((ok, no) => {
+      const i = new Image();
+      i.onload = () => ok(i); i.onerror = no;
+      i.src = URL.createObjectURL(file);
+    });
+    const scale = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement('canvas');
+    c.width = Math.round(img.naturalWidth * scale);
+    c.height = Math.round(img.naturalHeight * scale);
+    const g = c.getContext('2d');
+    g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+    g.drawImage(img, 0, 0, c.width, c.height);
+    URL.revokeObjectURL(img.src);
+    let q = 0.85, url = c.toDataURL('image/jpeg', q);
+    while (url.length > 1100000 && q > 0.4) { q -= 0.15; url = c.toDataURL('image/jpeg', q); }
+    return { url, data: url.split(',')[1] };
+  }
+
+  async function addFiles(list) {
+    hideErr();
+    const files = [...list].filter((f) => f.type.startsWith('image/'));
+    if (!files.length) return showErr('이미지 파일만 올릴 수 있어요.');
+    for (const f of files) {
+      if (shots.length >= MAX) { showErr('캡처는 3장까지 올릴 수 있어요.'); break; }
+      try { shots.push(await shrink(f)); } catch { showErr('이 파일은 열 수 없어요. 다른 캡처로 올려 주세요.'); }
+    }
+    drawThumbs();
+  }
+
+  function drawThumbs() {
+    $('thumbs').innerHTML = '';
+    shots.forEach((s, i) => {
+      const d = document.createElement('div');
+      d.className = 'thumb';
+      d.innerHTML = `<img src="${s.url}" alt="캡처 ${i + 1}"><button type="button" aria-label="캡처 ${i + 1} 빼기">×</button>`;
+      d.querySelector('button').onclick = () => { shots.splice(i, 1); drawThumbs(); };
+      $('thumbs').appendChild(d);
+    });
+    $('drop').hidden = shots.length >= MAX;
+  }
+
+  $('pick').onclick = () => $('file').click();
+  $('file').onchange = (e) => { addFiles(e.target.files); e.target.value = ''; };
+  const drop = $('drop');
+  drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('over'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+  drop.addEventListener('drop', (e) => { e.preventDefault(); drop.classList.remove('over'); addFiles(e.dataTransfer.files); });
+  document.addEventListener('paste', (e) => {
+    if (form.hidden) return;
+    const files = [...(e.clipboardData?.files || [])].filter((f) => f.type.startsWith('image/'));
+    if (files.length) { e.preventDefault(); addFiles(files); }
+  });
+
+  function showErr(t) { $('err').textContent = t; $('err').hidden = false; }
+  function hideErr() { $('err').hidden = true; }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    hideErr();
+    const v = {
+      company: form.company.value, name: $('name').value, contact: form.contact.value,
+      program: form.program.value, kind: form.kind.value, urgency: form.urgency.value,
+      message: form.message.value, website: form.website.value,
+      consent: $('consent').checked,
+      images: shots.map((s) => s.data),
+    };
+    if (!v.company.trim() || !v.name.trim() || !v.contact.trim()) return showErr('회사 이름, 이름, 연락처를 적어 주세요.');
+    if (!v.program.trim()) return showErr('어느 프로그램인지 적어 주세요.');
+    if (!v.kind) return showErr('요청 종류를 골라 주세요.');
+    if (!v.message.trim()) return showErr('요청 내용을 적어 주세요.');
+    if (!v.consent) return showErr('개인정보 수집·이용에 동의해 주세요.');
+
+    const btn = $('submit');
+    btn.disabled = true; btn.textContent = '보내는 중…';
+    try {
+      const headers = { 'Content-Type': 'application/json' };
+      const s = Auth.session();
+      if (s) headers.Authorization = `Bearer ${s.access_token}`;
+      const r = await fetch('/api/request', { method: 'POST', headers, body: JSON.stringify(v) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || '보내지 못했어요. 잠시 뒤 다시 시도해 주세요.');
+      $('doneNum').textContent = d.id ? `접수 번호 #${d.id}` : '';
+      $('doneMore').innerHTML = s
+        ? '처리 상태는 <a href="/my">내 요청 내역</a>에서 볼 수 있어요.'
+        : '전화로 물어보실 땐 접수 번호를 알려 주세요.';
+      form.hidden = true; $('done').hidden = false;
+      $('request').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (err) {
+      showErr(err.message === 'Failed to fetch' ? '인터넷 연결을 확인하고 다시 보내 주세요.' : err.message);
+    } finally {
+      btn.disabled = false; btn.textContent = '요청 보내기';
+    }
+  });
+
+  $('again').onclick = () => {
+    form.message.value = ''; form.kind.forEach((r) => { r.checked = false; });
+    shots = []; drawThumbs();
+    $('done').hidden = true; form.hidden = false;
+  };
+})();
+</script>
+</body>
+</html>

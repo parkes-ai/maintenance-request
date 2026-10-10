@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>회원가입</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="/assets/style.css">
+<script src="/assets/config.js"></script>
+<script src="/assets/auth.js"></script>
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <a class="brand" href="/" data-site-name>유지보수 요청 접수</a>
+  <nav class="nav" id="nav"></nav>
+</div></header>
+
+<main class="wrap narrow">
+  <h1 class="page-title">회원가입</h1>
+  <form class="card" id="form" novalidate>
+    <p class="sub">가입하면 내가 남긴 요청의 처리 상태를 볼 수 있어요.</p>
+    <div class="field"><label for="email">이메일</label><input type="email" id="email" autocomplete="email" required></div>
+    <div class="field"><label for="pw">비밀번호</label><input type="password" id="pw" autocomplete="new-password" minlength="8" required><p class="hint">8자 이상</p></div>
+    <label class="consent">
+      <input type="checkbox" id="consent">
+      <span>(필수) 회원 관리와 요청 내역 확인을 위해 이메일을 수집·이용하는 데 동의해요. 보관 기간 등은 <a href="/privacy" target="_blank">개인정보 처리방침</a>을 따라요.</span>
+    </label>
+    <div class="msg" id="msg" role="alert" hidden></div>
+    <div style="margin-top:16px"><button class="btn block" id="go">가입하기</button></div>
+    <div class="links"><a href="/login">이미 가입했어요 · 로그인</a></div>
+  </form>
+</main>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const say = (text, ok) => { const m = $('msg'); m.textContent = text; m.className = 'msg ' + (ok ? 'ok' : 'err'); m.hidden = false; };
+  $('form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = $('email').value.trim(), password = $('pw').value;
+    if (!email) return say('이메일을 적어 주세요.');
+    if (password.length < 8) return say('비밀번호는 8자 이상으로 정해 주세요.');
+    if (!$('consent').checked) return say('개인정보 수집·이용에 동의해 주세요.');
+    $('go').disabled = true;
+    let sent = false;
+    try {
+      const r = await Auth.call('signup?redirect_to=' + encodeURIComponent(location.origin + '/'), {
+        body: { email, password, data: { consent: true, consent_at: new Date().toISOString() } },
+      });
+      if (!r.ok) {
+        const t = String(r.data.msg || r.data.error_code || '');
+        if (/already|exists/i.test(t)) return say('이미 가입한 이메일이에요. 로그인해 주세요.');
+        if (/rate|limit/i.test(t)) return say('지금은 가입 요청이 많아요. 잠시 뒤 다시 시도해 주세요.');
+        if (/password/i.test(t)) return say('비밀번호가 너무 쉬워요. 더 길게 정해 주세요.');
+        return say('가입하지 못했어요. 이메일 주소를 확인해 주세요.');
+      }
+      if (r.data.access_token) { Auth.save(r.data); location.href = '/my'; return; }
+      sent = true;
+      $('form').querySelectorAll('input, button').forEach((el) => { el.disabled = true; });
+      say('확인 메일을 보냈어요. 메일의 링크를 누른 뒤 로그인해 주세요.', true);
+    } catch (err) { say(err.message || '잠시 뒤 다시 시도해 주세요.'); }
+    finally { if (!sent) $('go').disabled = false; }
+  });
+})();
+</script>
+</body>
+</html>
