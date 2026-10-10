@@ -64,6 +64,10 @@
   .member { display: grid; gap: 2px; }
   .member .email { font-weight: 600; word-break: break-all; }
   .member .when { color: var(--muted); font-size: 14px; }
+  .mem-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .reqs { flex: none; color: var(--muted); font-size: 14px; white-space: nowrap; }
+  .reqs b { font: 700 18px/1 var(--head); color: var(--ink); font-variant-numeric: tabular-nums; }
+  .reqs small { font-size: 13px; color: var(--amber); }
   .bar { display: flex; justify-content: space-between; align-items: center; }
 </style>
 </head>
@@ -119,7 +123,7 @@
       <p class="mem-count"><b id="memN">0</b>명이 가입했어요</p>
       <div class="msg err" id="memErr" hidden></div>
       <div class="list" id="memList"></div>
-      <p class="hint" style="margin-top:16px">회원을 지우거나 비밀번호를 바꾸는 일은 Supabase 화면(Authentication → Users)에서 해 주세요. 회원이 직접 탈퇴할 수도 있어요.</p>
+      <p class="hint" style="margin-top:16px">회원을 지우거나 비밀번호를 바꾸는 일은 Supabase 화면(Authentication → Users)에서 해 주세요. 회원이 직접 탈퇴할 수도 있어요.<br>요청 수는 로그인하고 남긴 요청만 세요. "진행 중"은 아직 완료되지 않은 요청이에요.</p>
     </div>
     <div style="height:48px"></div>
   </section>
@@ -366,7 +370,7 @@
       $('memList').innerHTML = members.length
         ? members.map((m) => `
           <article class="item member">
-            <span class="email">${esc(m.email)}</span>
+            <div class="mem-top"><span class="email">${esc(m.email)}</span><span class="reqs">${m.requests ? `요청 <b>${m.requests}</b>건${m.open ? ` <small>(진행 중 ${m.open})</small>` : ''}` : '요청 없음'}</span></div>
             <span class="when">가입 ${day(m.created_at)}${m.confirmed ? '' : ' · 메일 확인 전'}</span>
             <span class="when">마지막 로그인 ${m.last_sign_in_at ? day(m.last_sign_in_at) : '없음'}</span>
           </article>`).join('')

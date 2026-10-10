@@ -20,8 +20,20 @@ module.exports = async (req, res) => {
     const r = await fetch(`${SB_URL}/auth/v1/admin/users?page=1&per_page=200`, { headers: sbHeaders() });
     if (!r.ok) return res.status(500).json({ error: '회원 목록을 불러오지 못했어요.' });
     const d = await r.json();
+    // 회원별 요청 수 (로그인하고 남긴 요청만 회원과 이어져 있다)
+    const q = await fetch(`${SB_URL}/rest/v1/${TABLE}?select=user_id,status&user_id=not.is.null&limit=10000`, { headers: sbHeaders() });
+    if (!q.ok) return res.status(500).json({ error: '회원별 요청 수를 세지 못했어요.' });
+    const count = {};
+    for (const x of await q.json()) {
+      const c = (count[x.user_id] ||= { total: 0, open: 0 });
+      c.total++;
+      if (x.status !== '완료') c.open++;
+    }
     const members = (d.users || [])
-      .map((u) => ({ email: u.email, created_at: u.created_at, last_sign_in_at: u.last_sign_in_at || null, confirmed: Boolean(u.email_confirmed_at || u.confirmed_at) }))
+      .map((u) => ({
+        email: u.email, created_at: u.created_at, last_sign_in_at: u.last_sign_in_at || null, confirmed: Boolean(u.email_confirmed_at || u.confirmed_at),
+        requests: (count[u.id] || {}).total || 0, open: (count[u.id] || {}).open || 0,
+      }))
       .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
     return res.status(200).json({ members });
   }
