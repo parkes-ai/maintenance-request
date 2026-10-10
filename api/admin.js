@@ -91,8 +91,14 @@ module.exports = async (req, res) => {
       change.edited_at = now;
       return saveLogged(change, diff, '내용은 고쳤지만 수정 기록을 남기지 못했어요.');
     } else if (typeof b.memo === 'string') {
-      // 관리자 메모 (고객에게는 보이지 않는다, 기록하지 않는다)
-      change = { memo: b.memo.trim().slice(0, 500) || null, updated_at: now };
+      // 관리자 메모 (고객에게는 보이지 않는다) + 변경 기록
+      const memo = b.memo.trim().slice(0, 500) || null;
+      const g = await fetch(`${SB_URL}/rest/v1/${TABLE}?id=eq.${id}&select=memo`, { headers: sbHeaders() });
+      if (!g.ok) return res.status(500).json({ error: '바꾸지 못했어요.' });
+      const [cur] = await g.json();
+      if (!cur) return res.status(404).json({ error: '이미 지워진 요청이에요.' });
+      if ((cur.memo || null) === memo) return res.status(200).json({ ok: true, unchanged: true });
+      return saveLogged({ memo }, { memo: { from: cur.memo || null, to: memo } }, '메모는 저장했지만 변경 기록을 남기지 못했어요.');
     } else if (STATUSES.includes(b.status)) {
       // 상태 바꾸기 + 변경 기록. 완료로 바꾸면 완료한 날을 남기고, 다른 상태로 돌리면 지운다 (자동 삭제 기준일)
       const g = await fetch(`${SB_URL}/rest/v1/${TABLE}?id=eq.${id}&select=status`, { headers: sbHeaders() });

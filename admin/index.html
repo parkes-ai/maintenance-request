@@ -88,6 +88,7 @@
   .hist-row b { grid-row: span 2; font-weight: 600; min-width: 64px; }
   .hist-row .from { color: var(--muted); text-decoration: line-through; white-space: pre-wrap; word-break: break-all; }
   .hist-row > span[aria-hidden] { display: none; }
+  .hist-row .empty-val { color: var(--muted); font-style: normal; text-decoration: none; }
   .hist-row .to { white-space: pre-wrap; word-break: break-all; }
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   .del-row .edit-btn { margin-right: auto; }
@@ -377,13 +378,14 @@
   }
 
   // 변경 기록(내용 수정·상태 변경): 펼칠 때 불러오고, 펼친 상태는 목록을 다시 그려도 유지한다
-  const FIELD = { status: '상태', company: '회사', program: '프로그램', name: '이름', contact: '연락처', kind: '요청 종류', urgency: '급한 정도', message: '내용' };
+  const FIELD = { status: '상태', memo: '메모', company: '회사', program: '프로그램', name: '이름', contact: '연락처', kind: '요청 종류', urgency: '급한 정도', message: '내용' };
   const histCache = {};
   const histOpen = new Set();
+  const val = (v) => (v === null || v === undefined || v === '' ? '<i class="empty-val">(비어 있음)</i>' : esc(v));
   const histHtml = (edits) => (edits.length ? edits.map((e) => `
       <div class="hist-item">
         <div class="hist-when">${esc(new Date(e.edited_at).toLocaleString('ko-KR'))}</div>
-        ${Object.entries(e.changes).map(([k, c]) => `<div class="hist-row"><b>${esc(FIELD[k] || k)}</b><span class="from">${esc(c.from)}</span><span aria-hidden="true">→</span><span class="sr">에서</span><span class="to">${esc(c.to)}</span></div>`).join('')}
+        ${Object.entries(e.changes).map(([k, c]) => `<div class="hist-row"><b>${esc(FIELD[k] || k)}</b><span class="from">${val(c.from)}</span><span aria-hidden="true">→</span><span class="sr">에서</span><span class="to">${val(c.to)}</span></div>`).join('')}
       </div>`).join('') : '<div>기록이 없어요.</div>');
   const histLoading = new Set();
   async function loadHist(id) {
@@ -496,11 +498,12 @@
     btn.disabled = true;
     try {
       const memo = f.elements[0].value.trim();
-      await api('PATCH', { id: Number(f.dataset.id), memo });
+      const d = await api('PATCH', { id: Number(f.dataset.id), memo });
       const r = rows.find((x) => String(x.id) === f.dataset.id);
       r.memo = memo || null;
       f.elements[0].value = memo;
-      toast(memo ? `#${r.id} 메모를 저장했어요` : `#${r.id} 메모를 지웠어요`);
+      if (!d.unchanged) { r.last_logged_at = new Date().toISOString(); delete histCache[r.id]; draw(); }
+      toast(d.unchanged ? '바뀐 내용이 없어서 그대로 뒀어요' : memo ? `#${r.id} 메모를 저장했어요` : `#${r.id} 메모를 지웠어요`);
     } catch (err) {
       btn.disabled = false;
       if (err.message !== 'locked') { $('err').textContent = err.message; $('err').hidden = false; }
