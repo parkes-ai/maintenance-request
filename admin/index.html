@@ -80,6 +80,16 @@
   .sel-bar button.danger { background: var(--red); border-color: var(--red); font-weight: 700; }
   .sel-on .toast { bottom: 120px; }
   @media (min-width: 720px) { .sel-bar { left: 50%; right: auto; transform: translateX(-50%); bottom: 16px; border-radius: 12px; width: min(688px, calc(100% - 32px)); } }
+  .hist { margin: 0 0 10px; font-size: 14px; }
+  .hist summary { cursor: pointer; color: var(--amber); font-weight: 600; padding: 4px 0; }
+  .hist-body { margin-top: 6px; padding: 10px 12px; border-left: 3px solid var(--amber-soft); background: #fffaf0; border-radius: 0 8px 8px 0; display: grid; gap: 12px; }
+  .hist-when { color: var(--muted); font-size: 13px; margin-bottom: 2px; }
+  .hist-row { display: grid; grid-template-columns: auto 1fr; gap: 0 8px; align-items: baseline; }
+  .hist-row b { grid-row: span 2; font-weight: 600; min-width: 64px; }
+  .hist-row .from { color: var(--muted); text-decoration: line-through; white-space: pre-wrap; word-break: break-all; }
+  .hist-row > span[aria-hidden] { display: none; }
+  .hist-row .to { white-space: pre-wrap; word-break: break-all; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   .del-row .edit-btn { margin-right: auto; }
   .del-row .edit-btn:hover, .del-row .edit-btn:focus-visible { color: var(--accent); }
   .edited { color: var(--amber); font-weight: 600; }
@@ -360,9 +370,39 @@
           <button type="submit"${drafts[r.id] === undefined ? ' disabled' : ''}>저장</button>
         </form>
         <div class="states">${STATUSES.map((s) => `<button type="button" data-id="${r.id}" data-s="${s}" class="${r.status === s ? 'on' : ''}">${s}</button>`).join('')}</div>
+        ${r.edited_at ? `<details class="hist" data-hist="${r.id}"${histOpen.has(r.id) ? ' open' : ''}><summary>수정 기록 보기</summary><div class="hist-body">${histCache[r.id] ? histHtml(histCache[r.id]) : '불러오는 중…'}</div></details>` : ''}
         <div class="del-row">${editing.id === r.id ? '' : `<button type="button" class="del edit-btn" data-edit="${r.id}">수정</button>`}<button type="button" class="del" data-del="${r.id}">요청 삭제</button></div>
       </article>`).join('');
+    histOpen.forEach((id) => loadHist(id));
   }
+
+  // 수정 기록: 펼칠 때 불러오고, 펼친 상태는 목록을 다시 그려도 유지한다
+  const FIELD = { company: '회사', program: '프로그램', name: '이름', contact: '연락처', kind: '요청 종류', urgency: '급한 정도', message: '내용' };
+  const histCache = {};
+  const histOpen = new Set();
+  const histHtml = (edits) => (edits.length ? edits.map((e) => `
+      <div class="hist-item">
+        <div class="hist-when">${esc(new Date(e.edited_at).toLocaleString('ko-KR'))}</div>
+        ${Object.entries(e.changes).map(([k, c]) => `<div class="hist-row"><b>${esc(FIELD[k] || k)}</b><span class="from">${esc(c.from)}</span><span aria-hidden="true">→</span><span class="sr">에서</span><span class="to">${esc(c.to)}</span></div>`).join('')}
+      </div>`).join('') : '<div>기록이 없어요.</div>');
+  const histLoading = new Set();
+  async function loadHist(id) {
+    if (histCache[id] || histLoading.has(id)) return;
+    histLoading.add(id);
+    const body = () => document.querySelector(`details.hist[data-hist="${id}"] .hist-body`);
+    try {
+      const { edits } = await api('GET', null, `?view=edits&id=${id}`);
+      histCache[id] = edits;
+      if (body()) body().innerHTML = histHtml(edits);
+    } catch (err) {
+      if (body() && err.message !== 'locked') body().textContent = err.message;
+    } finally { histLoading.delete(id); }
+  }
+  $('list').addEventListener('toggle', (e) => {
+    const d = e.target.closest && e.target.closest('details.hist'); if (!d) return;
+    const id = Number(d.dataset.hist);
+    if (d.open) { histOpen.add(id); loadHist(id); } else histOpen.delete(id);
+  }, true);
 
   // 요청 내용 고치기: 한 번에 한 카드만. 고치던 내용은 목록을 다시 그려도 남는다
   const KINDS = ['오류', '수정 요청', '사용 문의'];
@@ -396,13 +436,16 @@
     const btn = f.querySelector('[type="submit"]');
     btn.disabled = true;
     try {
-      await api('PATCH', { id, edit: editing.v });
+      const d = await api('PATCH', { id, edit: editing.v });
       const r = rows.find((x) => x.id === id);
       const t = (s) => String(s).trim();
-      Object.assign(r, { company: t(editing.v.company), name: t(editing.v.name), contact: t(editing.v.contact), program: t(editing.v.program), kind: editing.v.kind, urgency: editing.v.urgency, message: t(editing.v.message), edited_at: new Date().toISOString() });
+      if (!d.unchanged) {
+        Object.assign(r, { company: t(editing.v.company), name: t(editing.v.name), contact: t(editing.v.contact), program: t(editing.v.program), kind: editing.v.kind, urgency: editing.v.urgency, message: t(editing.v.message), edited_at: new Date().toISOString() });
+        delete histCache[id];
+      }
       editing.id = null; editing.v = null;
       draw();
-      toast(`#${id} 요청을 고쳤어요`);
+      toast(d.unchanged ? '바뀐 내용이 없어서 그대로 뒀어요' : `#${id} 요청을 고쳤어요`);
     } catch (err) {
       btn.disabled = false;
       if (err.message !== 'locked') { $('err').textContent = err.message; $('err').hidden = false; $('err').scrollIntoView({ block: 'center' }); }

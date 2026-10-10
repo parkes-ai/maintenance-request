@@ -38,6 +38,15 @@ module.exports = async (req, res) => {
     return res.status(200).json({ members });
   }
 
+  // 요청 하나의 수정 기록 (최근 것이 위)
+  if (req.method === 'GET' && req.query && req.query.view === 'edits') {
+    const id = Number(req.query.id);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: '잘못된 요청이에요.' });
+    const r = await fetch(`${SB_URL}/rest/v1/request_edits?request_id=eq.${id}&select=edited_at,changes&order=edited_at.desc&limit=100`, { headers: sbHeaders() });
+    if (!r.ok) return res.status(500).json({ error: '수정 기록을 불러오지 못했어요.' });
+    return res.status(200).json({ edits: await r.json() });
+  }
+
   if (req.method === 'GET') {
     const r = await fetch(`${SB_URL}/rest/v1/${TABLE}?select=*&order=created_at.desc&limit=500`, { headers: sbHeaders() });
     if (!r.ok) return res.status(500).json({ error: '불러오지 못했어요.' });
@@ -61,8 +70,22 @@ module.exports = async (req, res) => {
       if (!change.program) return res.status(400).json({ error: '프로그램은 비울 수 없어요.' });
       if (!change.message) return res.status(400).json({ error: '요청 내용은 비울 수 없어요.' });
       if (!KINDS.includes(change.kind) || !URGENCIES.includes(change.urgency)) return res.status(400).json({ error: '요청 종류나 급한 정도가 맞지 않아요.' });
+      // 실제로 바뀐 칸만 기록한다. 바뀐 게 없으면 아무것도 하지 않는다
+      const fields = Object.keys(change);
+      const g = await fetch(`${SB_URL}/rest/v1/${TABLE}?id=eq.${id}&select=${fields.join(',')}`, { headers: sbHeaders() });
+      if (!g.ok) return res.status(500).json({ error: '바꾸지 못했어요.' });
+      const [cur] = await g.json();
+      if (!cur) return res.status(404).json({ error: '이미 지워진 요청이에요.' });
+      const diff = {};
+      for (const k of fields) if (cur[k] !== change[k]) diff[k] = { from: cur[k], to: change[k] };
+      if (!Object.keys(diff).length) return res.status(200).json({ ok: true, unchanged: true });
       change.edited_at = now;
       change.updated_at = now;
+      const u = await fetch(`${SB_URL}/rest/v1/${TABLE}?id=eq.${id}`, { method: 'PATCH', headers: { ...sbHeaders(), Prefer: 'return=minimal' }, body: JSON.stringify(change) });
+      if (!u.ok) return res.status(500).json({ error: '바꾸지 못했어요.' });
+      const l = await fetch(`${SB_URL}/rest/v1/request_edits`, { method: 'POST', headers: { ...sbHeaders(), Prefer: 'return=minimal' }, body: JSON.stringify({ request_id: id, edited_at: now, changes: diff }) });
+      if (!l.ok) return res.status(500).json({ error: '내용은 고쳤지만 수정 기록을 남기지 못했어요.' });
+      return res.status(200).json({ ok: true, changed: Object.keys(diff) });
     } else if (typeof b.memo === 'string') {
       // 관리자 메모 (고객에게는 보이지 않는다)
       change = { memo: b.memo.trim().slice(0, 500) || null, updated_at: now };

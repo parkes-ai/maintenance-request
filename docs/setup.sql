@@ -34,3 +34,15 @@ alter table public.maintenance_requests add column if not exists memo text;
 
 -- 2026-10-11 추가: 관리자가 요청 내용을 고친 시각 (관리자 화면에 "관리자 수정"으로 보인다)
 alter table public.maintenance_requests add column if not exists edited_at timestamptz;
+
+-- 2026-10-11 추가: 요청 수정 기록 (어느 칸을 무엇에서 무엇으로). 요청을 지우면 기록도 함께 지워진다
+create table if not exists public.request_edits (
+  id bigint generated always as identity primary key,
+  request_id bigint not null references public.maintenance_requests(id) on delete cascade,
+  edited_at timestamptz not null default now(),
+  changes jsonb not null
+);
+create index if not exists request_edits_request_idx on public.request_edits (request_id, edited_at desc);
+alter table public.request_edits enable row level security;
+revoke all on public.request_edits from anon, authenticated;
+-- 정책은 만들지 않는다: 서버(/api)만 접근
