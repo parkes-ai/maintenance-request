@@ -31,3 +31,6 @@ create index if not exists maintenance_requests_completed_idx on public.maintena
 
 -- 2026-10-11 추가: 관리자 메모 (관리자 화면에서만 보인다. /api/my-requests 는 이 칸을 내려주지 않는다)
 alter table public.maintenance_requests add column if not exists memo text;
+
+-- 2026-10-11 추가: 관리자가 요청 내용을 고친 시각 (관리자 화면에 "관리자 수정"으로 보인다)
+alter table public.maintenance_requests add column if not exists edited_at timestamptz;

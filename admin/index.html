@@ -80,6 +80,19 @@
   .sel-bar button.danger { background: var(--red); border-color: var(--red); font-weight: 700; }
   .sel-on .toast { bottom: 120px; }
   @media (min-width: 720px) { .sel-bar { left: 50%; right: auto; transform: translateX(-50%); bottom: 16px; border-radius: 12px; width: min(688px, calc(100% - 32px)); } }
+  .del-row .edit-btn { margin-right: auto; }
+  .del-row .edit-btn:hover, .del-row .edit-btn:focus-visible { color: var(--accent); }
+  .edited { color: var(--amber); font-weight: 600; }
+  .edit { display: grid; gap: 10px; margin: 4px 0 12px; padding: 12px; border-radius: 10px; background: var(--bg); }
+  .edit label { display: grid; gap: 4px; font-size: 14px; font-weight: 600; }
+  .edit input, .edit select, .edit textarea { min-height: 44px; font-size: 15px; padding: 8px 12px; font-weight: 400; }
+  .edit textarea { min-height: 110px; }
+  .edit-grid { display: grid; gap: 10px; }
+  @media (min-width: 560px) { .edit-grid { grid-template-columns: 1fr 1fr; } }
+  .edit .hint { margin: 0; }
+  .edit-actions { display: flex; justify-content: flex-end; gap: 8px; }
+  .edit-actions button { min-height: 44px; padding: 0 18px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); font: inherit; font-size: 15px; cursor: pointer; color: var(--ink); }
+  .edit-actions .primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
   .search { margin: 0 0 10px; }
   .search input { min-height: 48px; }
   .search .hint { margin: 4px 0 0; min-height: 0; }
@@ -299,6 +312,7 @@
 
   function draw() {
     drawTrend();
+    if (editing.id && !rows.some((r) => r.id === editing.id)) { editing.id = null; editing.v = null; }
     document.querySelectorAll('[data-n]').forEach((el) => { el.textContent = rows.filter((r) => r.status === el.dataset.n).length; });
     const lateN = rows.filter(isLate).length;
     if (!lateN) filter.late = false;
@@ -334,19 +348,66 @@
           <span class="pill">${esc(r.kind)}</span>
           ${r.user_id ? '<span class="pill">회원</span>' : ''}
           ${r.status === '완료' && r.completed_at ? `<span>${delDate(r.completed_at)} 자동 삭제 예정</span>` : ''}
+          ${r.edited_at ? `<span class="edited" title="${esc(new Date(r.edited_at).toLocaleString('ko-KR'))}">관리자 수정 ${date(r.edited_at)}</span>` : ''}
         </div>
+        ${editing.id === r.id ? editForm(r) : `
         <h3>${esc(r.company)} · ${esc(r.program)}</h3>
         <p class="who">${esc(r.name)} · <button type="button" class="copy" data-copy="${esc(r.contact)}">${esc(r.contact)}</button></p>
-        <p class="text">${esc(r.message)}</p>
+        <p class="text">${esc(r.message)}</p>`}
         ${r.images.length ? `<div class="shots">${r.images.map((u, i) => `<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" alt="캡처 ${i + 1}" loading="lazy"></a>`).join('')}</div>` : ''}
         <form class="memo" data-id="${r.id}">
           <input type="text" maxlength="500" placeholder="메모 (관리자만 보여요)" aria-label="#${r.id} 메모" value="${esc(drafts[r.id] ?? r.memo ?? '')}">
           <button type="submit"${drafts[r.id] === undefined ? ' disabled' : ''}>저장</button>
         </form>
         <div class="states">${STATUSES.map((s) => `<button type="button" data-id="${r.id}" data-s="${s}" class="${r.status === s ? 'on' : ''}">${s}</button>`).join('')}</div>
-        <div class="del-row"><button type="button" class="del" data-del="${r.id}">요청 삭제</button></div>
+        <div class="del-row">${editing.id === r.id ? '' : `<button type="button" class="del edit-btn" data-edit="${r.id}">수정</button>`}<button type="button" class="del" data-del="${r.id}">요청 삭제</button></div>
       </article>`).join('');
   }
+
+  // 요청 내용 고치기: 한 번에 한 카드만. 고치던 내용은 목록을 다시 그려도 남는다
+  const KINDS = ['오류', '수정 요청', '사용 문의'];
+  const URGENCIES = ['보통', '급함', '업무 중단 중'];
+  const editing = { id: null, v: null };
+  function editForm(r) {
+    const v = editing.v;
+    const opt = (list, cur) => list.map((x) => `<option${x === cur ? ' selected' : ''}>${x}</option>`).join('');
+    const f = (name, label, max) => `<label>${label}<input type="text" name="${name}" maxlength="${max}" value="${esc(v[name])}" required></label>`;
+    return `
+        <form class="edit" data-id="${r.id}">
+          <div class="edit-grid">
+            ${f('company', '회사', 100)}${f('program', '프로그램', 100)}
+            ${f('name', '이름', 50)}${f('contact', '연락처', 100)}
+            <label>요청 종류<select name="kind">${opt(KINDS, v.kind)}</select></label>
+            <label>급한 정도<select name="urgency">${opt(URGENCIES, v.urgency)}</select></label>
+          </div>
+          <label>내용<textarea name="message" maxlength="3000" required>${esc(v.message)}</textarea></label>
+          <p class="hint">화면 캡처와 접수 일시는 바뀌지 않아요. 저장하면 "관리자 수정"으로 표시돼요.</p>
+          <div class="edit-actions"><button type="button" data-edit-cancel>취소</button><button type="submit" class="primary">저장</button></div>
+        </form>`;
+  }
+  $('list').addEventListener('input', (e) => {
+    const f = e.target.closest('form.edit'); if (!f || !e.target.name) return;
+    editing.v[e.target.name] = e.target.value;
+  });
+  $('list').addEventListener('submit', async (e) => {
+    const f = e.target.closest('form.edit'); if (!f) return;
+    e.preventDefault();
+    const id = Number(f.dataset.id);
+    const btn = f.querySelector('[type="submit"]');
+    btn.disabled = true;
+    try {
+      await api('PATCH', { id, edit: editing.v });
+      const r = rows.find((x) => x.id === id);
+      const t = (s) => String(s).trim();
+      Object.assign(r, { company: t(editing.v.company), name: t(editing.v.name), contact: t(editing.v.contact), program: t(editing.v.program), kind: editing.v.kind, urgency: editing.v.urgency, message: t(editing.v.message), edited_at: new Date().toISOString() });
+      editing.id = null; editing.v = null;
+      draw();
+      toast(`#${id} 요청을 고쳤어요`);
+    } catch (err) {
+      btn.disabled = false;
+      if (err.message !== 'locked') { $('err').textContent = err.message; $('err').hidden = false; $('err').scrollIntoView({ block: 'center' }); }
+    }
+  });
 
   // 메모: 고치면 [저장]이 켜지고, 저장하면 다시 꺼진다
   // 선택 칸
@@ -410,6 +471,18 @@
       catch { const sel = getSelection(); const rg = document.createRange(); rg.selectNodeContents(c); sel.removeAllRanges(); sel.addRange(rg); }
       return;
     }
+    const ed = e.target.closest('[data-edit]');
+    if (ed) {
+      const r = rows.find((x) => x.id === Number(ed.dataset.edit));
+      if (editing.id && editing.id !== r.id && !confirm(`#${editing.id} 요청을 고치는 중이에요. 저장하지 않고 이 요청을 고칠까요?`)) return;
+      editing.id = r.id;
+      editing.v = { company: r.company, program: r.program, name: r.name, contact: r.contact, kind: r.kind, urgency: r.urgency, message: r.message };
+      draw();
+      const f = document.querySelector(`form.edit[data-id="${r.id}"]`);
+      if (f) { f.scrollIntoView({ block: 'center' }); f.elements.company.focus(); }
+      return;
+    }
+    if (e.target.closest('[data-edit-cancel]')) { editing.id = null; editing.v = null; draw(); return; }
     const del = e.target.closest('[data-del]');
     if (del) {
       const id = Number(del.dataset.del);

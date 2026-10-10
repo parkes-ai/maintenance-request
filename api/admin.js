@@ -1,6 +1,6 @@
-// 관리자: 비밀번호 확인 → 요청 목록(캡처 임시 주소 포함) / 상태·메모 바꾸기 / 요청 삭제 / 회원 목록
+// 관리자: 비밀번호 확인 → 요청 목록(캡처 임시 주소 포함) / 상태·메모·내용 바꾸기 / 요청 삭제 / 회원 목록
 const crypto = require('node:crypto');
-const { SB_URL, SB_KEY, TABLE, BUCKET, STATUSES, sbHeaders, readBody, signImages } = require('./_lib');
+const { SB_URL, SB_KEY, TABLE, BUCKET, STATUSES, KINDS, URGENCIES, sbHeaders, readBody, signImages } = require('./_lib');
 
 const same = (a, b) => {
   const h = (s) => crypto.createHash('sha256').update(String(s)).digest();
@@ -49,7 +49,21 @@ module.exports = async (req, res) => {
     if (!Number.isInteger(id)) return res.status(400).json({ error: '잘못된 요청이에요.' });
     const now = new Date().toISOString();
     let change;
-    if (typeof b.memo === 'string') {
+    if (b.edit && typeof b.edit === 'object') {
+      // 요청 내용 고치기 (접수할 때와 같은 기준으로 확인). 화면 캡처·접수 일시는 고치지 않는다
+      const clip = (v, n) => String(v ?? '').trim().slice(0, n);
+      const e = b.edit;
+      change = {
+        company: clip(e.company, 100), name: clip(e.name, 50), contact: clip(e.contact, 100),
+        program: clip(e.program, 100), kind: clip(e.kind, 20), urgency: clip(e.urgency, 20), message: clip(e.message, 3000),
+      };
+      if (!change.company || !change.name || !change.contact) return res.status(400).json({ error: '회사 이름, 이름, 연락처는 비울 수 없어요.' });
+      if (!change.program) return res.status(400).json({ error: '프로그램은 비울 수 없어요.' });
+      if (!change.message) return res.status(400).json({ error: '요청 내용은 비울 수 없어요.' });
+      if (!KINDS.includes(change.kind) || !URGENCIES.includes(change.urgency)) return res.status(400).json({ error: '요청 종류나 급한 정도가 맞지 않아요.' });
+      change.edited_at = now;
+      change.updated_at = now;
+    } else if (typeof b.memo === 'string') {
       // 관리자 메모 (고객에게는 보이지 않는다)
       change = { memo: b.memo.trim().slice(0, 500) || null, updated_at: now };
     } else if (STATUSES.includes(b.status)) {
