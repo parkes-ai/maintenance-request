@@ -104,6 +104,8 @@
   .edit-actions { display: flex; justify-content: flex-end; gap: 8px; }
   .edit-actions button { min-height: 44px; padding: 0 18px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); font: inherit; font-size: 15px; cursor: pointer; color: var(--ink); }
   .edit-actions .primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+  .hist-kinds { align-items: center; margin: 0 0 8px; }
+  .hist-kinds span { color: var(--muted); font-size: 14px; margin-right: 2px; }
   .search { margin: 0 0 10px; }
   .search input { min-height: 48px; }
   .search .hint { margin: 4px 0 0; min-height: 0; }
@@ -163,6 +165,13 @@
       <button type="button" data-v="업무 중단 중">업무 중단 중</button>
       <button type="button" data-v="급함">급함</button>
       <button type="button" data-v="보통">보통</button>
+    </div>
+    <div class="filters hist-kinds" id="fHist" role="group" aria-label="변경 기록 종류">
+      <span>변경 기록</span>
+      <button type="button" data-v="" class="on">전체</button>
+      <button type="button" data-v="status">상태</button>
+      <button type="button" data-v="memo">메모</button>
+      <button type="button" data-v="content">내용 수정</button>
     </div>
     <div class="csv">
       <button type="button" class="btn ghost" id="csv">지금 보이는 목록 내려받기 (CSV)</button>
@@ -329,11 +338,12 @@
     btn.disabled = true;
     try {
       const { edits } = await api('POST', { ids: shown.map((r) => r.id) }, '?view=edits');
-      if (!edits.length) return toast('보이는 요청에 변경 기록이 없어요');
+      const kept = pickKind(edits);
+      if (!kept.length) return toast(histKind ? `보이는 요청에 ${HIST_KINDS[histKind]} 기록이 없어요` : '보이는 요청에 변경 기록이 없어요');
       const company = Object.fromEntries(shown.map((r) => [r.id, r.company]));
-      const lines = edits.flatMap((e) => Object.entries(e.changes).map(([k, c]) => [stamp(e.edited_at), e.request_id, company[e.request_id], FIELD[k] || k, c.from ?? '', c.to ?? '']));
-      saveCsv('change-log', ['변경 일시', '접수 번호', '회사', '항목', '이전 값', '바뀐 값'], lines);
-      toast(`변경 기록 ${lines.length}줄을 내려받았어요`);
+      const lines = kept.flatMap((e) => Object.entries(e.changes).map(([k, c]) => [stamp(e.edited_at), e.request_id, company[e.request_id], FIELD[k] || k, c.from ?? '', c.to ?? '']));
+      saveCsv(histKind ? `change-log-${histKind}` : 'change-log', ['변경 일시', '접수 번호', '회사', '항목', '이전 값', '바뀐 값'], lines);
+      toast(`${histKind ? HIST_KINDS[histKind] + ' ' : ''}변경 기록 ${lines.length}줄을 내려받았어요`);
     } catch (err) {
       if (err.message !== 'locked') { $('err').textContent = err.message; $('err').hidden = false; }
     } finally { btn.disabled = false; }
@@ -400,11 +410,28 @@
   const histCache = {};
   const histOpen = new Set();
   const val = (v) => (v === null || v === undefined || v === '' ? '<i class="empty-val">(비어 있음)</i>' : esc(v));
-  const histHtml = (edits) => (edits.length ? edits.map((e) => `
+  // 기록 종류 필터 (상태 / 메모 / 내용 수정). 기록 하나에 여러 칸이 있으면 고른 종류의 칸만 남긴다
+  const HIST_KINDS = { status: '상태', memo: '메모', content: '내용 수정' };
+  let histKind = '';
+  const kindOf = (k) => (k === 'status' || k === 'memo' ? k : 'content');
+  const pickKind = (edits) => edits
+    .map((e) => ({ ...e, changes: Object.fromEntries(Object.entries(e.changes).filter(([k]) => !histKind || kindOf(k) === histKind)) }))
+    .filter((e) => Object.keys(e.changes).length);
+  const histHtml = (all) => {
+    const edits = pickKind(all);
+    if (!edits.length) return `<div>${all.length && histKind ? `${HIST_KINDS[histKind]} 기록이 없어요. 위에서 "전체"를 고르면 모두 보여요.` : '기록이 없어요.'}</div>`;
+    return edits.map((e) => `
       <div class="hist-item">
         <div class="hist-when">${esc(new Date(e.edited_at).toLocaleString('ko-KR'))}</div>
         ${Object.entries(e.changes).map(([k, c]) => `<div class="hist-row"><b>${esc(FIELD[k] || k)}</b><span class="from">${val(c.from)}</span><span aria-hidden="true">→</span><span class="sr">에서</span><span class="to">${val(c.to)}</span></div>`).join('')}
-      </div>`).join('') : '<div>기록이 없어요.</div>');
+      </div>`).join('');
+  };
+  $('fHist').addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    histKind = b.dataset.v;
+    $('fHist').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
+    draw();
+  });
   const histLoading = new Set();
   async function loadHist(id) {
     if (histCache[id] || histLoading.has(id)) return;
