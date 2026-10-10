@@ -33,6 +33,22 @@
   .late-bar + .sum { margin-top: 12px; }
   .item.late { border-color: var(--red); box-shadow: inset 0 0 0 1px var(--red); }
   .wait { color: var(--red); font-weight: 700; }
+  .trend { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; margin: 12px 0 16px; }
+  .trend-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 20px; }
+  .trend-head h2 { font: 700 16px/1.3 var(--head); margin: 0; }
+  .trend-head span { color: var(--muted); font-size: 14px; }
+  .chart { position: relative; display: grid; grid-template-columns: repeat(30, 1fr); gap: 2px; height: 120px; align-items: end; border-bottom: 1px solid #cdd3dd; }
+  .chart .col { position: relative; height: 100%; display: flex; align-items: flex-end; }
+  .chart .col i { display: block; width: 100%; background: var(--accent); border-radius: 4px 4px 0 0; }
+  .chart .col:hover i, .chart .col:focus-visible i { background: #1a3ea6; }
+  .chart .col:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .chart .peak { position: absolute; left: 50%; transform: translateX(-50%); font-size: 12px; font-weight: 700; color: var(--ink); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .axis { display: flex; justify-content: space-between; color: var(--muted); font-size: 13px; margin-top: 4px; }
+  .tip { position: absolute; z-index: 5; pointer-events: none; transform: translate(-50%, -100%); background: var(--ink); color: #fff; font-size: 13px; padding: 4px 8px; border-radius: 6px; white-space: nowrap; }
+  .trend details { margin-top: 8px; font-size: 14px; }
+  .trend summary { cursor: pointer; color: var(--muted); }
+  .trend table { border-collapse: collapse; margin-top: 6px; font-variant-numeric: tabular-nums; }
+  .trend td, .trend th { padding: 2px 12px 2px 0; text-align: left; font-weight: 400; }
   .bar { display: flex; justify-content: space-between; align-items: center; }
 </style>
 </head>
@@ -59,6 +75,12 @@
       <button type="button" data-v="완료" style="--c:var(--green)"><b data-n="완료">0</b>완료</button>
       <button type="button" data-v="" class="all on">전체 보기</button>
     </div>
+    <section class="trend" aria-labelledby="trendTitle">
+      <div class="trend-head"><h2 id="trendTitle">최근 30일 접수</h2><span id="trendSum"></span></div>
+      <div class="chart" id="chart" role="img"></div>
+      <div class="axis"><span id="axisFrom"></span><span>오늘</span></div>
+      <details><summary>표로 보기</summary><table id="trendTable"><thead><tr><th>날짜</th><th>접수</th></tr></thead><tbody></tbody></table></details>
+    </section>
     <div class="filters" id="fUrg" style="margin-bottom:16px">
       <button type="button" data-v="" class="on">급한 정도 전체</button>
       <button type="button" data-v="업무 중단 중">업무 중단 중</button>
@@ -122,7 +144,50 @@
     }
   }
 
+  // 최근 30일 날짜별 접수 수 (오늘이 오른쪽 끝, 이 기기의 날짜 기준)
+  const dayKey = (d) => `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+  const md = (d) => `${d.getMonth() + 1}월 ${d.getDate()}일`;
+  function drawTrend() {
+    const days = [];
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    for (let i = 29; i >= 0; i--) { const d = new Date(today); d.setDate(d.getDate() - i); days.push({ d, n: 0 }); }
+    const idx = Object.fromEntries(days.map((x, i) => [dayKey(x.d), i]));
+    rows.forEach((r) => { const i = idx[dayKey(new Date(r.created_at))]; if (i !== undefined) days[i].n++; });
+    const max = Math.max(...days.map((x) => x.n));
+    const total = days.reduce((s, x) => s + x.n, 0);
+    const peakAt = max ? days.map((x) => x.n).lastIndexOf(max) : -1;
+    $('trendSum').textContent = `모두 ${total}건`;
+    $('axisFrom').textContent = md(days[0].d);
+    $('chart').setAttribute('aria-label', `최근 30일 동안 ${total}건 접수, 하루 최대 ${max}건`);
+    $('chart').innerHTML = days.map((x, i) => {
+      const h = max ? (x.n / max) * 100 : 0;
+      const peak = i === peakAt ? `<span class="peak" style="bottom:calc(${h}% + 2px)">${max}</span>` : '';
+      return `<div class="col" tabindex="0" data-tip="${md(x.d)} ${x.n}건"><i style="height:${h}%"></i>${peak}</div>`;
+    }).join('');
+    $('trendTable').tBodies[0].innerHTML = days.slice().reverse().map((x) => `<tr><td>${md(x.d)}</td><td>${x.n}건</td></tr>`).join('');
+  }
+  // 막대에 마우스를 올리거나 손가락으로 누르면 날짜와 건수
+  (function () {
+    const chart = $('chart');
+    let tip = null;
+    const hide = () => { if (tip) { tip.remove(); tip = null; } };
+    const show = (col) => {
+      if (!col) return hide();
+      if (!tip) { tip = document.createElement('div'); tip.className = 'tip'; chart.appendChild(tip); }
+      tip.textContent = col.dataset.tip;
+      // 양 끝 막대에서도 말풍선이 차트 밖으로 나가지 않게
+      const half = tip.offsetWidth / 2;
+      tip.style.left = Math.min(Math.max(col.offsetLeft + col.offsetWidth / 2, half), chart.clientWidth - half) + 'px';
+      tip.style.top = '-6px';
+    };
+    chart.addEventListener('pointerover', (e) => show(e.target.closest('.col')));
+    chart.addEventListener('pointerleave', hide);
+    chart.addEventListener('focusin', (e) => show(e.target.closest('.col')));
+    chart.addEventListener('focusout', hide);
+  })();
+
   function draw() {
+    drawTrend();
     document.querySelectorAll('[data-n]').forEach((el) => { el.textContent = rows.filter((r) => r.status === el.dataset.n).length; });
     const lateN = rows.filter(isLate).length;
     if (!lateN) filter.late = false;
