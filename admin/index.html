@@ -63,6 +63,9 @@
   .mem-count b { font: 700 30px/1 var(--head); color: var(--ink); margin-right: 6px; font-variant-numeric: tabular-nums; }
   .member { display: grid; gap: 2px; }
   .member .email { font: inherit; font-weight: 600; word-break: break-all; text-align: left; padding: 6px 0; background: none; border: 0; color: var(--accent); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+  .del-row { display: flex; justify-content: flex-end; margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--line); }
+  .del { min-height: 40px; padding: 0 10px; border: 0; background: none; font: inherit; font-size: 14px; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+  .del:hover, .del:focus-visible { color: var(--red); }
   .search { margin: 0 0 10px; }
   .search input { min-height: 48px; }
   .search .hint { margin: 4px 0 0; min-height: 0; }
@@ -311,6 +314,7 @@
           <button type="submit"${drafts[r.id] === undefined ? ' disabled' : ''}>저장</button>
         </form>
         <div class="states">${STATUSES.map((s) => `<button type="button" data-id="${r.id}" data-s="${s}" class="${r.status === s ? 'on' : ''}">${s}</button>`).join('')}</div>
+        <div class="del-row"><button type="button" class="del" data-del="${r.id}">요청 삭제</button></div>
       </article>`).join('');
   }
 
@@ -344,6 +348,24 @@
     if (c) {
       try { await navigator.clipboard.writeText(c.dataset.copy); const t = c.textContent; c.textContent = '복사했어요'; setTimeout(() => { c.textContent = t; }, 1200); }
       catch { const sel = getSelection(); const rg = document.createRange(); rg.selectNodeContents(c); sel.removeAllRanges(); sel.addRange(rg); }
+      return;
+    }
+    const del = e.target.closest('[data-del]');
+    if (del) {
+      const id = Number(del.dataset.del);
+      const r = rows.find((x) => x.id === id);
+      const shots = r && r.images.length ? ` 화면 캡처 ${r.images.length}장도` : '';
+      if (!confirm(`#${id} 요청을 지울까요?${shots ? shots + ' 함께 지워지고,' : ''} 되돌릴 수 없어요.`)) return;
+      del.disabled = true;
+      try {
+        await api('DELETE', { id });
+        rows = rows.filter((x) => x.id !== id);
+        draw();
+        toast(`#${id} 요청을 지웠어요`);
+      } catch (err) {
+        del.disabled = false;
+        if (err.message !== 'locked') { $('err').textContent = err.message; $('err').hidden = false; }
+      }
       return;
     }
     const b = e.target.closest('[data-s][data-id]');
