@@ -2,3 +2,6 @@
 .vercel
 node_modules
 .claude/
+# Vercel CLI가 설치한 Supabase 안내 자료(사이트와 무관)
+.agents/
+skills-lock.json
