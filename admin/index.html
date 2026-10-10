@@ -52,6 +52,10 @@
   .csv { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin: 0 0 16px; }
   .csv .btn { min-height: 44px; font-size: 15px; padding: 0 16px; }
   .csv .hint { margin: 0; }
+  .memo { display: flex; gap: 6px; margin: 0 0 10px; }
+  .memo input { flex: 1; min-width: 0; min-height: 44px; padding: 8px 12px; font-size: 15px; background: #fffdf3; border-color: #e6dcb0; }
+  .memo button { flex: none; min-height: 44px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); font: inherit; font-size: 15px; cursor: pointer; color: var(--ink); }
+  .memo button:disabled { color: var(--muted); cursor: default; }
   .bar { display: flex; justify-content: space-between; align-items: center; }
 </style>
 </head>
@@ -205,8 +209,8 @@
   const stamp = (s) => (s ? new Date(s).toLocaleString('ko-KR') : '');
   $('csv').onclick = () => {
     if (!shown.length) return toast('내려받을 요청이 없어요');
-    const head = ['접수 번호', '접수 일시', '회사', '이름', '연락처', '프로그램', '요청 종류', '급한 정도', '내용', '상태', '완료 일시', '회원', '캡처 수'];
-    const lines = shown.map((r) => [r.id, stamp(r.created_at), r.company, r.name, r.contact, r.program, r.kind, r.urgency, r.message, r.status, stamp(r.completed_at), r.user_id ? '예' : '', (r.images || []).length]);
+    const head = ['접수 번호', '접수 일시', '회사', '이름', '연락처', '프로그램', '요청 종류', '급한 정도', '내용', '상태', '완료 일시', '회원', '캡처 수', '메모'];
+    const lines = shown.map((r) => [r.id, stamp(r.created_at), r.company, r.name, r.contact, r.program, r.kind, r.urgency, r.message, r.status, stamp(r.completed_at), r.user_id ? '예' : '', (r.images || []).length, r.memo]);
     const csv = '﻿' + [head, ...lines].map((l) => l.map(cell).join(',')).join('\r\n');
     const d = new Date();
     const name = `requests_${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}.csv`;
@@ -226,6 +230,13 @@
     $('late').hidden = !lateN;
     $('lateN').textContent = lateN;
     $('lateGo').textContent = filter.late ? '전체 보기' : '모아 보기';
+    // 저장하지 않은 메모는 목록을 다시 그려도 남겨 둔다
+    const drafts = {};
+    document.querySelectorAll('.memo').forEach((f) => {
+      const r = rows.find((x) => String(x.id) === f.dataset.id);
+      const v = f.elements[0].value;
+      if (r && v !== (r.memo ?? '')) drafts[r.id] = v;
+    });
     const list = shown = rows.filter((r) => (!filter.late || isLate(r)) && (!filter.status || r.status === filter.status) && (!filter.urgency || r.urgency === filter.urgency));
     if (!list.length) { $('list').innerHTML = '<div class="empty">보여 줄 요청이 없어요.</div>'; return; }
     $('list').innerHTML = list.map((r) => `
@@ -242,9 +253,38 @@
         <p class="who">${esc(r.name)} · <button type="button" class="copy" data-copy="${esc(r.contact)}">${esc(r.contact)}</button></p>
         <p class="text">${esc(r.message)}</p>
         ${r.images.length ? `<div class="shots">${r.images.map((u, i) => `<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" alt="캡처 ${i + 1}" loading="lazy"></a>`).join('')}</div>` : ''}
+        <form class="memo" data-id="${r.id}">
+          <input type="text" maxlength="500" placeholder="메모 (관리자만 보여요)" aria-label="#${r.id} 메모" value="${esc(drafts[r.id] ?? r.memo ?? '')}">
+          <button type="submit"${drafts[r.id] === undefined ? ' disabled' : ''}>저장</button>
+        </form>
         <div class="states">${STATUSES.map((s) => `<button type="button" data-id="${r.id}" data-s="${s}" class="${r.status === s ? 'on' : ''}">${s}</button>`).join('')}</div>
       </article>`).join('');
   }
+
+  // 메모: 고치면 [저장]이 켜지고, 저장하면 다시 꺼진다
+  $('list').addEventListener('input', (e) => {
+    const f = e.target.closest('.memo'); if (!f) return;
+    const r = rows.find((x) => String(x.id) === f.dataset.id);
+    f.elements[1].disabled = f.elements[0].value === (r.memo ?? '');
+  });
+  $('list').addEventListener('submit', async (e) => {
+    const f = e.target.closest('.memo'); if (!f) return;
+    e.preventDefault();
+    const btn = f.elements[1];
+    if (btn.disabled) return;
+    btn.disabled = true;
+    try {
+      const memo = f.elements[0].value.trim();
+      await api('PATCH', { id: Number(f.dataset.id), memo });
+      const r = rows.find((x) => String(x.id) === f.dataset.id);
+      r.memo = memo || null;
+      f.elements[0].value = memo;
+      toast(memo ? `#${r.id} 메모를 저장했어요` : `#${r.id} 메모를 지웠어요`);
+    } catch (err) {
+      btn.disabled = false;
+      if (err.message !== 'locked') { $('err').textContent = err.message; $('err').hidden = false; }
+    }
+  });
 
   $('list').addEventListener('click', async (e) => {
     const c = e.target.closest('[data-copy]');

@@ -28,3 +28,6 @@ on conflict (id) do nothing;
 -- 2026-10-11 추가: 완료한 날 (완료 후 1년 지나면 /api/cleanup 이 매일 지운다)
 alter table public.maintenance_requests add column if not exists completed_at timestamptz;
 create index if not exists maintenance_requests_completed_idx on public.maintenance_requests (completed_at) where status = '완료';
+
+-- 2026-10-11 추가: 관리자 메모 (관리자 화면에서만 보인다. /api/my-requests 는 이 칸을 내려주지 않는다)
+alter table public.maintenance_requests add column if not exists memo text;
