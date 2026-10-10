@@ -65,21 +65,24 @@ module.exports = async (req, res) => {
     if (!r.ok) return res.status(500).json({ error: '바꾸지 못했어요.' });
     return res.status(200).json({ ok: true });
   }
-  // 요청 삭제: 화면 캡처를 먼저 지우고, 성공하면 요청을 지운다 (캡처만 남는 일을 막기 위해)
+  // 요청 삭제 ({id} 한 건 또는 {ids} 여러 건, 최대 100건)
+  // 화면 캡처를 먼저 지우고, 성공하면 요청을 지운다 (캡처만 남는 일을 막기 위해)
   if (req.method === 'DELETE') {
-    const id = Number(readBody(req).id);
-    if (!Number.isInteger(id)) return res.status(400).json({ error: '잘못된 요청이에요.' });
-    const g = await fetch(`${SB_URL}/rest/v1/${TABLE}?id=eq.${id}&select=id,images`, { headers: sbHeaders() });
+    const b = readBody(req);
+    const ids = [...new Set((Array.isArray(b.ids) ? b.ids : [b.id]).map(Number))];
+    if (!ids.length || ids.length > 100 || !ids.every(Number.isInteger)) return res.status(400).json({ error: '잘못된 요청이에요.' });
+    const g = await fetch(`${SB_URL}/rest/v1/${TABLE}?id=in.(${ids.join(',')})&select=id,images`, { headers: sbHeaders() });
     if (!g.ok) return res.status(500).json({ error: '지우지 못했어요.' });
-    const [row] = await g.json();
-    if (!row) return res.status(404).json({ error: '이미 지워진 요청이에요.' });
-    if ((row.images || []).length) {
-      const s = await fetch(`${SB_URL}/storage/v1/object/${BUCKET}`, { method: 'DELETE', headers: sbHeaders(), body: JSON.stringify({ prefixes: row.images }) });
+    const found = await g.json();
+    if (!found.length) return res.status(404).json({ error: '이미 지워진 요청이에요.' });
+    const paths = found.flatMap((r) => r.images || []);
+    if (paths.length) {
+      const s = await fetch(`${SB_URL}/storage/v1/object/${BUCKET}`, { method: 'DELETE', headers: sbHeaders(), body: JSON.stringify({ prefixes: paths }) });
       if (!s.ok) return res.status(500).json({ error: '화면 캡처를 지우지 못해서 요청도 지우지 않았어요. 잠시 뒤 다시 시도해 주세요.' });
     }
-    const d = await fetch(`${SB_URL}/rest/v1/${TABLE}?id=eq.${id}`, { method: 'DELETE', headers: { ...sbHeaders(), Prefer: 'return=minimal' } });
+    const d = await fetch(`${SB_URL}/rest/v1/${TABLE}?id=in.(${found.map((r) => r.id).join(',')})`, { method: 'DELETE', headers: { ...sbHeaders(), Prefer: 'return=minimal' } });
     if (!d.ok) return res.status(500).json({ error: '지우지 못했어요.' });
-    return res.status(200).json({ ok: true });
+    return res.status(200).json({ ok: true, deleted: found.map((r) => r.id), images: paths.length });
   }
   return res.status(405).json({ error: '지원하지 않는 요청이에요.' });
 };
