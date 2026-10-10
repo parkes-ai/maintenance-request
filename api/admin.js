@@ -57,6 +57,15 @@ module.exports = async (req, res) => {
     const id = Number(b.id);
     if (!Number.isInteger(id)) return res.status(400).json({ error: '잘못된 요청이에요.' });
     const now = new Date().toISOString();
+    // 요청을 바꾸고 변경 기록(request_edits)을 남긴다
+    const saveLogged = async (change, diff, logFail) => {
+      Object.assign(change, { updated_at: now, last_logged_at: now });
+      const u = await fetch(`${SB_URL}/rest/v1/${TABLE}?id=eq.${id}`, { method: 'PATCH', headers: { ...sbHeaders(), Prefer: 'return=minimal' }, body: JSON.stringify(change) });
+      if (!u.ok) return res.status(500).json({ error: '바꾸지 못했어요.' });
+      const l = await fetch(`${SB_URL}/rest/v1/request_edits`, { method: 'POST', headers: { ...sbHeaders(), Prefer: 'return=minimal' }, body: JSON.stringify({ request_id: id, edited_at: now, changes: diff }) });
+      if (!l.ok) return res.status(500).json({ error: logFail });
+      return res.status(200).json({ ok: true, changed: Object.keys(diff) });
+    };
     let change;
     if (b.edit && typeof b.edit === 'object') {
       // 요청 내용 고치기 (접수할 때와 같은 기준으로 확인). 화면 캡처·접수 일시는 고치지 않는다
@@ -80,18 +89,19 @@ module.exports = async (req, res) => {
       for (const k of fields) if (cur[k] !== change[k]) diff[k] = { from: cur[k], to: change[k] };
       if (!Object.keys(diff).length) return res.status(200).json({ ok: true, unchanged: true });
       change.edited_at = now;
-      change.updated_at = now;
-      const u = await fetch(`${SB_URL}/rest/v1/${TABLE}?id=eq.${id}`, { method: 'PATCH', headers: { ...sbHeaders(), Prefer: 'return=minimal' }, body: JSON.stringify(change) });
-      if (!u.ok) return res.status(500).json({ error: '바꾸지 못했어요.' });
-      const l = await fetch(`${SB_URL}/rest/v1/request_edits`, { method: 'POST', headers: { ...sbHeaders(), Prefer: 'return=minimal' }, body: JSON.stringify({ request_id: id, edited_at: now, changes: diff }) });
-      if (!l.ok) return res.status(500).json({ error: '내용은 고쳤지만 수정 기록을 남기지 못했어요.' });
-      return res.status(200).json({ ok: true, changed: Object.keys(diff) });
+      return saveLogged(change, diff, '내용은 고쳤지만 수정 기록을 남기지 못했어요.');
     } else if (typeof b.memo === 'string') {
-      // 관리자 메모 (고객에게는 보이지 않는다)
+      // 관리자 메모 (고객에게는 보이지 않는다, 기록하지 않는다)
       change = { memo: b.memo.trim().slice(0, 500) || null, updated_at: now };
     } else if (STATUSES.includes(b.status)) {
-      // 완료로 바꾸면 완료한 날을 남기고, 다시 다른 상태로 돌리면 지운다 (자동 삭제 기준일)
-      change = { status: b.status, updated_at: now, completed_at: b.status === '완료' ? now : null };
+      // 상태 바꾸기 + 변경 기록. 완료로 바꾸면 완료한 날을 남기고, 다른 상태로 돌리면 지운다 (자동 삭제 기준일)
+      const g = await fetch(`${SB_URL}/rest/v1/${TABLE}?id=eq.${id}&select=status`, { headers: sbHeaders() });
+      if (!g.ok) return res.status(500).json({ error: '바꾸지 못했어요.' });
+      const [cur] = await g.json();
+      if (!cur) return res.status(404).json({ error: '이미 지워진 요청이에요.' });
+      if (cur.status === b.status) return res.status(200).json({ ok: true, unchanged: true });
+      change = { status: b.status, completed_at: b.status === '완료' ? now : null };
+      return saveLogged(change, { status: { from: cur.status, to: b.status } }, '상태는 바꿨지만 변경 기록을 남기지 못했어요.');
     } else {
       return res.status(400).json({ error: '잘못된 요청이에요.' });
     }

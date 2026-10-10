@@ -370,14 +370,14 @@
           <button type="submit"${drafts[r.id] === undefined ? ' disabled' : ''}>저장</button>
         </form>
         <div class="states">${STATUSES.map((s) => `<button type="button" data-id="${r.id}" data-s="${s}" class="${r.status === s ? 'on' : ''}">${s}</button>`).join('')}</div>
-        ${r.edited_at ? `<details class="hist" data-hist="${r.id}"${histOpen.has(r.id) ? ' open' : ''}><summary>수정 기록 보기</summary><div class="hist-body">${histCache[r.id] ? histHtml(histCache[r.id]) : '불러오는 중…'}</div></details>` : ''}
+        ${r.last_logged_at || r.edited_at ? `<details class="hist" data-hist="${r.id}"${histOpen.has(r.id) ? ' open' : ''}><summary>변경 기록 보기</summary><div class="hist-body">${histCache[r.id] ? histHtml(histCache[r.id]) : '불러오는 중…'}</div></details>` : ''}
         <div class="del-row">${editing.id === r.id ? '' : `<button type="button" class="del edit-btn" data-edit="${r.id}">수정</button>`}<button type="button" class="del" data-del="${r.id}">요청 삭제</button></div>
       </article>`).join('');
     histOpen.forEach((id) => loadHist(id));
   }
 
-  // 수정 기록: 펼칠 때 불러오고, 펼친 상태는 목록을 다시 그려도 유지한다
-  const FIELD = { company: '회사', program: '프로그램', name: '이름', contact: '연락처', kind: '요청 종류', urgency: '급한 정도', message: '내용' };
+  // 변경 기록(내용 수정·상태 변경): 펼칠 때 불러오고, 펼친 상태는 목록을 다시 그려도 유지한다
+  const FIELD = { status: '상태', company: '회사', program: '프로그램', name: '이름', contact: '연락처', kind: '요청 종류', urgency: '급한 정도', message: '내용' };
   const histCache = {};
   const histOpen = new Set();
   const histHtml = (edits) => (edits.length ? edits.map((e) => `
@@ -547,7 +547,7 @@
     const b = e.target.closest('[data-s][data-id]');
     if (!b || b.classList.contains('on')) return;
     b.disabled = true;
-    try { await api('PATCH', { id: Number(b.dataset.id), status: b.dataset.s }); await load(); toast(`#${b.dataset.id} 요청을 '${b.dataset.s}'(으)로 바꿨어요`); }
+    try { await api('PATCH', { id: Number(b.dataset.id), status: b.dataset.s }); delete histCache[Number(b.dataset.id)]; await load(); toast(`#${b.dataset.id} 요청을 '${b.dataset.s}'(으)로 바꿨어요`); }
     catch (err) { if (err.message !== 'locked') { $('err').textContent = err.message; $('err').hidden = false; } }
     finally { b.disabled = false; }
   });

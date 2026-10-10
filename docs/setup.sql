@@ -46,3 +46,7 @@ create index if not exists request_edits_request_idx on public.request_edits (re
 alter table public.request_edits enable row level security;
 revoke all on public.request_edits from anon, authenticated;
 -- 정책은 만들지 않는다: 서버(/api)만 접근
+
+-- 2026-10-11 추가: 마지막으로 변경 기록(request_edits)을 남긴 시각. 관리자 화면에서 [변경 기록 보기]를 보일지 정한다
+-- request_edits.changes 에는 내용 수정(company 등)과 상태 변경(status)이 함께 남는다
+alter table public.maintenance_requests add column if not exists last_logged_at timestamptz;
