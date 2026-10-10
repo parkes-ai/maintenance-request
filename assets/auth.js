@@ -72,7 +72,14 @@
     document.querySelectorAll('[data-site-name]').forEach((e) => { e.textContent = S.name; });
     document.querySelectorAll('[data-phone]').forEach((e) => {
       e.textContent = S.phone ? S.phone + (S.phoneHours ? ` (${S.phoneHours})` : '') : '전화번호 준비 중';
+      // data-phone="split": 번호와 받는 시간을 따로 꾸밀 수 있게 나눈다
+      if (S.phone && e.dataset.phone === 'split') {
+        e.textContent = S.phone;
+        if (S.phoneHours) { const h = document.createElement('small'); h.className = 'hours'; h.textContent = S.phoneHours; e.append(' ', h); }
+      }
       if (S.phone && e.tagName === 'A') e.href = 'tel:' + S.phone.replace(/[^0-9+]/g, '');
     });
+    // 글자 대신 묶음 전체가 전화 링크인 곳 (예: 첫 화면의 Tel)
+    if (S.phone) document.querySelectorAll('[data-phone-link]').forEach((e) => { e.href = 'tel:' + S.phone.replace(/[^0-9+]/g, ''); });
   });
 })();
