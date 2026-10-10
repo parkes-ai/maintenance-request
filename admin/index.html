@@ -49,6 +49,9 @@
   .trend summary { cursor: pointer; color: var(--muted); }
   .trend table { border-collapse: collapse; margin-top: 6px; font-variant-numeric: tabular-nums; }
   .trend td, .trend th { padding: 2px 12px 2px 0; text-align: left; font-weight: 400; }
+  .csv { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin: 0 0 16px; }
+  .csv .btn { min-height: 44px; font-size: 15px; padding: 0 16px; }
+  .csv .hint { margin: 0; }
   .bar { display: flex; justify-content: space-between; align-items: center; }
 </style>
 </head>
@@ -86,6 +89,10 @@
       <button type="button" data-v="업무 중단 중">업무 중단 중</button>
       <button type="button" data-v="급함">급함</button>
       <button type="button" data-v="보통">보통</button>
+    </div>
+    <div class="csv">
+      <button type="button" class="btn ghost" id="csv">지금 보이는 목록 내려받기 (CSV)</button>
+      <p class="hint">개인정보가 들어 있어요. 보관에 주의하세요.</p>
     </div>
     <div class="msg err" id="err" hidden></div>
     <div class="list" id="list"></div>
@@ -186,6 +193,31 @@
     chart.addEventListener('focusout', hide);
   })();
 
+  // 지금 화면에 보이는 목록 = 필터가 걸린 목록
+  let shown = [];
+
+  // CSV 내려받기: 엑셀에서 한글이 깨지지 않게 맨 앞에 BOM, 수식으로 읽힐 수 있는 칸은 글자로 바꾼다
+  const cell = (v) => {
+    let s = String(v ?? '');
+    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+    return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const stamp = (s) => (s ? new Date(s).toLocaleString('ko-KR') : '');
+  $('csv').onclick = () => {
+    if (!shown.length) return toast('내려받을 요청이 없어요');
+    const head = ['접수 번호', '접수 일시', '회사', '이름', '연락처', '프로그램', '요청 종류', '급한 정도', '내용', '상태', '완료 일시', '회원', '캡처 수'];
+    const lines = shown.map((r) => [r.id, stamp(r.created_at), r.company, r.name, r.contact, r.program, r.kind, r.urgency, r.message, r.status, stamp(r.completed_at), r.user_id ? '예' : '', (r.images || []).length]);
+    const csv = '﻿' + [head, ...lines].map((l) => l.map(cell).join(',')).join('\r\n');
+    const d = new Date();
+    const name = `requests_${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}.csv`;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    toast(`${shown.length}건을 내려받았어요`);
+  };
+
   function draw() {
     drawTrend();
     document.querySelectorAll('[data-n]').forEach((el) => { el.textContent = rows.filter((r) => r.status === el.dataset.n).length; });
@@ -194,7 +226,7 @@
     $('late').hidden = !lateN;
     $('lateN').textContent = lateN;
     $('lateGo').textContent = filter.late ? '전체 보기' : '모아 보기';
-    const list = rows.filter((r) => (!filter.late || isLate(r)) && (!filter.status || r.status === filter.status) && (!filter.urgency || r.urgency === filter.urgency));
+    const list = shown = rows.filter((r) => (!filter.late || isLate(r)) && (!filter.status || r.status === filter.status) && (!filter.urgency || r.urgency === filter.urgency));
     if (!list.length) { $('list').innerHTML = '<div class="empty">보여 줄 요청이 없어요.</div>'; return; }
     $('list').innerHTML = list.map((r) => `
       <article class="item${r.urgency === '업무 중단 중' ? ' stop' : ''}${isLate(r) ? ' late' : ''}">
