@@ -15,6 +15,17 @@ module.exports = async (req, res) => {
   if (!same(req.headers['x-admin-password'] || '', pass)) return res.status(401).json({ error: '비밀번호가 맞지 않아요.' });
   if (!SB_URL || !SB_KEY) return res.status(500).json({ error: 'Supabase 연결 정보가 없어요.' });
 
+  // 회원 목록: 이메일·가입일·마지막 로그인만 내려 준다
+  if (req.method === 'GET' && req.query && req.query.view === 'members') {
+    const r = await fetch(`${SB_URL}/auth/v1/admin/users?page=1&per_page=200`, { headers: sbHeaders() });
+    if (!r.ok) return res.status(500).json({ error: '회원 목록을 불러오지 못했어요.' });
+    const d = await r.json();
+    const members = (d.users || [])
+      .map((u) => ({ email: u.email, created_at: u.created_at, last_sign_in_at: u.last_sign_in_at || null, confirmed: Boolean(u.email_confirmed_at || u.confirmed_at) }))
+      .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+    return res.status(200).json({ members });
+  }
+
   if (req.method === 'GET') {
     const r = await fetch(`${SB_URL}/rest/v1/${TABLE}?select=*&order=created_at.desc&limit=500`, { headers: sbHeaders() });
     if (!r.ok) return res.status(500).json({ error: '불러오지 못했어요.' });
