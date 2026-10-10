@@ -24,3 +24,7 @@ revoke all on public.maintenance_requests from anon, authenticated;
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values ('request-images', 'request-images', false, 2097152, array['image/jpeg', 'image/png'])
 on conflict (id) do nothing;
+
+-- 2026-10-11 추가: 완료한 날 (완료 후 1년 지나면 /api/cleanup 이 매일 지운다)
+alter table public.maintenance_requests add column if not exists completed_at timestamptz;
+create index if not exists maintenance_requests_completed_idx on public.maintenance_requests (completed_at) where status = '완료';

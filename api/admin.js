@@ -24,9 +24,11 @@ module.exports = async (req, res) => {
     const b = readBody(req);
     const id = Number(b.id);
     if (!Number.isInteger(id) || !STATUSES.includes(b.status)) return res.status(400).json({ error: '잘못된 요청이에요.' });
+    const now = new Date().toISOString();
     const r = await fetch(`${SB_URL}/rest/v1/${TABLE}?id=eq.${id}`, {
       method: 'PATCH', headers: { ...sbHeaders(), Prefer: 'return=minimal' },
-      body: JSON.stringify({ status: b.status, updated_at: new Date().toISOString() }),
+      // 완료로 바꾸면 완료한 날을 남기고, 다시 다른 상태로 돌리면 지운다 (자동 삭제 기준일)
+      body: JSON.stringify({ status: b.status, updated_at: now, completed_at: b.status === '완료' ? now : null }),
     });
     if (!r.ok) return res.status(500).json({ error: '바꾸지 못했어요.' });
     return res.status(200).json({ ok: true });
