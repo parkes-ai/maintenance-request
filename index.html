@@ -176,7 +176,7 @@
         return;
       }
       linkOk = true;
-      $('kicker').textContent = d.name;
+      $('kicker').textContent = d.name; $('kicker').classList.add('ko');
       $('company').value = d.name; $('company').readOnly = true; $('companyHint').hidden = false;
       note.innerHTML = `<b>${esc(d.name)}</b> 전용 접수 페이지예요.`; note.hidden = false;
       const q = encodeURIComponent(token);

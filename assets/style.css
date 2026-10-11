@@ -265,3 +265,5 @@ textarea { min-height: 160px; resize: vertical; }
   .toast { animation: toastIn 700ms var(--ease); }
   @keyframes toastIn { from { opacity: 0; transform: translate(-50%, 12px); } }
 }
+/* 영문 라벨 자리에 한글(회사 이름)이 들어갈 때는 자간을 넓히지 않는다 */
+.mono.ko { font-family: var(--sans); text-transform: none; letter-spacing: .04em; font-size: 14px; font-weight: 600; }
