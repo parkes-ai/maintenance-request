@@ -267,3 +267,8 @@ textarea { min-height: 160px; resize: vertical; }
 }
 /* 영문 라벨 자리에 한글(회사 이름)이 들어갈 때는 자간을 넓히지 않는다 */
 .mono.ko { font-family: var(--sans); text-transform: none; letter-spacing: .04em; font-size: 14px; font-weight: 600; }
+
+/* 고객사 전용 링크 안내 */
+.link-note { padding: 12px 14px; border-left: 2px solid var(--accent); background: var(--accent-soft); color: var(--ink) !important; }
+.link-note.bad { border-left-color: var(--danger); background: var(--danger-soft); color: var(--danger) !important; }
+input[readonly] { background: var(--accent-soft); border-color: var(--accent-soft); color: var(--ink); }
