@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>요청함 관리</title>
+<title>관리자 화면</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -199,7 +199,7 @@
   .add-form { margin-top: 20px; }
   .add-form .row3 { display: grid; gap: 0 12px; }
   @media (min-width: 640px) { .add-form .row3 { grid-template-columns: 1fr 1fr 1fr; } }
-  /* 고객사·인력 정보 */
+  /* 고객사·직원 정보 */
   .cust-add2, .staff-add { display: grid; gap: 8px; margin: 20px 0 16px; grid-template-columns: 1fr 1fr; align-items: end; }
   @media (min-width: 720px) { .cust-add2 { grid-template-columns: 2fr 1.2fr 1fr auto; } .staff-add { grid-template-columns: 1.2fr 1.5fr 1fr 1.5fr auto; } }
   .cust-add2 label, .staff-add label, .info-form label { display: grid; gap: 4px; font-size: 13px; font-weight: 600; color: var(--muted); }
@@ -210,7 +210,7 @@
   .info-form .full { grid-column: 1 / -1; }
   .info-form .acts { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 8px; }
   .staff.off { opacity: .6; }
-  /* 월 요약 */
+  /* 월별 정리 */
   .sum-head { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin: 20px 0 16px; }
   .sum-head label { display: grid; gap: 4px; font-size: 13px; font-weight: 600; color: var(--muted); }
   .sum-head input { min-height: 46px; }
@@ -249,26 +249,26 @@
 </head>
 <body>
 <header class="mast"><div class="wrap read">
-  <span class="brand"><b>요청함 관리</b><span class="mono">Admin</span></span>
-  <nav class="nav"><button type="button" id="reload" hidden>새로고침</button><button type="button" id="out" hidden>잠그기</button></nav>
+  <span class="brand"><b>관리자 화면</b><span class="mono">Admin</span></span>
+  <nav class="nav"><button type="button" id="reload" hidden>새로고침</button><button type="button" id="out" hidden>로그아웃</button></nav>
 </div></header>
 
 <main class="wrap read">
   <form class="card narrow" id="lock" style="margin:32px auto">
     <h2>관리자 비밀번호</h2>
-    <p class="sub">비밀번호는 이 탭을 닫으면 지워져요.</p>
+    <p class="sub">탭을 닫거나 로그아웃하면 비밀번호를 다시 넣어야 해요.</p>
     <div class="field"><input type="password" id="pw" autocomplete="current-password" aria-label="관리자 비밀번호" required></div>
     <div class="msg err" id="lockErr" role="alert" hidden></div>
-    <button class="btn block" id="enter">열기</button>
+    <button class="btn block" id="enter">들어가기</button>
   </form>
 
   <section id="box" hidden>
     <div class="tabs no-print" role="tablist" aria-label="보기">
-      <button type="button" role="tab" data-tab="req" aria-selected="true">요청함</button>
+      <button type="button" role="tab" data-tab="req" aria-selected="true">요청 목록</button>
       <button type="button" role="tab" data-tab="add" aria-selected="false">요청 등록</button>
       <button type="button" role="tab" data-tab="cust" aria-selected="false">고객사</button>
-      <button type="button" role="tab" data-tab="staff" aria-selected="false">인력</button>
-      <button type="button" role="tab" data-tab="sum" aria-selected="false">월 요약</button>
+      <button type="button" role="tab" data-tab="staff" aria-selected="false">직원</button>
+      <button type="button" role="tab" data-tab="sum" aria-selected="false">월별 정리</button>
       <button type="button" role="tab" data-tab="mem" aria-selected="false">회원</button>
     </div>
 
@@ -315,8 +315,8 @@
         <button type="button" data-v="content">내용 수정</button>
       </div>
       <div class="csv">
-        <button type="button" class="btn ghost" id="csv">지금 보이는 목록 내려받기 (CSV)</button>
-        <button type="button" class="btn ghost" id="csvLog">변경 기록 내려받기 (CSV)</button>
+        <button type="button" class="btn ghost" id="csv">지금 보이는 목록 엑셀로 받기</button>
+        <button type="button" class="btn ghost" id="csvLog">변경 기록 엑셀로 받기</button>
         <p class="hint">개인정보가 들어 있어요. 보관에 주의하세요.</p>
       </div>
       <div class="msg err" id="err" hidden></div>
@@ -329,11 +329,11 @@
         <p class="notice">전화나 이메일로 받은 요청을 직접 넣어요. 계정·비밀번호·주민등록번호 같은 민감한 정보는 적지 마세요.</p>
         <div class="row2">
           <div class="field">
-            <label for="addChannel">접수 경로 <span class="req">*</span></label>
-            <select id="addChannel"><option>이메일</option><option>유선</option><option>기타</option></select>
+            <label for="addChannel">받은 방법 <span class="req">*</span></label>
+            <select id="addChannel"><option>이메일</option><option>전화</option><option>기타</option></select>
           </div>
           <div class="field">
-            <label for="addCompany">고객 <span class="req">*</span></label>
+            <label for="addCompany">회사 <span class="req">*</span></label>
             <div class="combo" id="addCombo"><input type="text" id="addCompany" maxlength="100" autocomplete="off" placeholder="회사 이름·코드로 찾기" role="combobox" aria-expanded="false" aria-autocomplete="list"></div>
             <p class="combo-hint" id="addComboHint">등록된 고객사를 고르거나, 새 회사 이름을 적으면 신규 문의로 들어가요.</p>
           </div>
@@ -370,7 +370,7 @@
     <div id="view-cust" role="tabpanel" hidden>
       <form class="cust-add2" id="custAdd">
         <label>회사 이름<input type="text" id="custName" maxlength="100" required></label>
-        <label>청구 방식<select id="custBilling"><option>무상</option><option>건당</option><option>시간당</option><option>월 정액</option><option>계약 범위 안</option></select></label>
+        <label>청구 방식<select id="custBilling"><option>무료</option><option>건별</option><option>시간당</option><option>월 정액</option><option>계약에 포함</option></select></label>
         <label>월 정액 포함 시간<input type="number" id="custHours" min="0" step="0.5" placeholder="시간"></label>
         <button class="btn" type="submit">고객사 추가</button>
       </form>
@@ -379,27 +379,27 @@
       <div class="list" id="custList"></div>
     </div>
 
-    <!-- 인력 -->
+    <!-- 직원 -->
     <div id="view-staff" role="tabpanel" hidden>
       <form class="staff-add" id="staffAdd">
         <label>이름<input type="text" id="staffName" maxlength="50" required></label>
         <label>이메일<input type="email" id="staffEmail" maxlength="100"></label>
         <label>전화<input type="tel" id="staffPhone" maxlength="20"></label>
-        <label>가용 시간<input type="text" id="staffAvail" maxlength="200" placeholder="예: 평일 오후"></label>
-        <button class="btn" type="submit">인력 추가</button>
+        <label>가능한 시간<input type="text" id="staffAvail" maxlength="200" placeholder="예: 평일 오후"></label>
+        <button class="btn" type="submit">직원 추가</button>
       </form>
-      <p class="hint" style="margin:-8px 0 16px">인력은 사이트에 로그인하지 않아요. 요청의 담당자로 지정만 돼요. 퇴사 처리해도 지난 기록은 남고, 담당자 목록에서만 빠져요.</p>
+      <p class="hint" style="margin:-8px 0 16px">직원은 사이트에 로그인하지 않아요. 요청의 담당자로 지정만 돼요. 퇴사 처리해도 지난 기록은 남고, 담당자 목록에서만 빠져요.</p>
       <div class="msg err" id="staffErr" hidden></div>
       <div class="list" id="staffList"></div>
     </div>
 
-    <!-- 월 요약 -->
+    <!-- 월별 정리 -->
     <div id="view-sum" role="tabpanel" hidden>
       <div class="sum-head no-print">
         <label>달<input type="month" id="sumMonth"></label>
         <button type="button" class="row-btn" id="sumLoad">보기</button>
       </div>
-      <p class="hint no-print" style="margin:-6px 0 14px">접수한 달(한국 시간) 기준이에요. 다음 달에 처리 시간을 넣으면 지난달 숫자가 바뀔 수 있어요. 무상 응대 시간 = 청구 방식이 무상·계약 범위 안인 요청의 처리 시간 (요청 예외 &gt; 원인 '우리 결함' &gt; 고객사 청구 방식 순).</p>
+      <p class="hint no-print" style="margin:-6px 0 14px">요청이 들어온 달 기준이에요. 처리 시간을 나중에 넣으면 지난달 숫자도 바뀔 수 있어요. 무료로 처리한 시간 = 청구 방식이 "무료"나 "계약에 포함"인 요청, 또는 원인이 "우리 프로그램 오류"인 요청의 처리 시간이에요.</p>
       <div class="msg err" id="sumErr" hidden></div>
       <div class="list no-print" id="sumList"></div>
       <div class="report" id="report" hidden></div>
@@ -417,7 +417,7 @@
     <div class="sel-bar" id="selBar" hidden>
       <span><b id="selN">0</b>건 선택됨</span>
       <button type="button" id="selAll">보이는 것 모두 선택</button>
-      <button type="button" id="selNone">선택 풀기</button>
+      <button type="button" id="selNone">선택 취소</button>
       <button type="button" class="danger" id="selDel">선택한 요청 삭제</button>
     </div>
   </section>

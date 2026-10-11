@@ -101,11 +101,11 @@
         ${(row.images || []).length ? `<div class="shots">${row.images.map((u, i) => `<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" alt="캡처 ${i + 1}" loading="lazy"></a>`).join('')}</div>` : ''}
         ${row.approval_status === '요청함' ? `
           <div class="approve" data-ap="${row.id}">
-            <b>유상 작업 동의 요청</b>
+            <b>유료 작업 동의 요청</b>
             <p>${esc(row.approval_note || '')}<br><span style="color:var(--muted)">예상 작업 시간 ${hm(row.approval_minutes || 0)} · 요청 ${date(row.approval_requested_at)}</span></p>
             <p class="hint" style="margin:0 0 10px">동의하시면 작업을 시작해요. 비용은 계약에 따라 안내해요.</p>
             <div class="ap-btns"><button type="button" class="btn" data-dec="동의">진행 동의</button><button type="button" class="btn ghost" data-dec="거절">동의하지 않음</button></div>
-          </div>` : row.approval_status ? `<p class="approved">유상 작업: <b>${row.approval_status === '동의' ? '동의함' : '동의하지 않음'}</b> (${date(row.approval_decided_at)})</p>` : ''}
+          </div>` : row.approval_status ? `<p class="approved">유료 작업: <b>${row.approval_status === '동의' ? '동의함' : '동의하지 않음'}</b> (${date(row.approval_decided_at)})</p>` : ''}
       </article>`).join('');
     for (const row of d.rows) {
       Editor.render(document.querySelector(`[data-body="${row.id}"]`), row.body, row.message);
@@ -121,7 +121,7 @@
         data = d; drawList();
       });
   }
-  // 유상 작업 동의/거절
+  // 유료 작업 동의/거절
   $('list').addEventListener('click', async (e) => {
     const b = e.target.closest('[data-dec]'); if (!b) return;
     const box = b.closest('[data-ap]');

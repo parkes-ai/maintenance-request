@@ -1,6 +1,6 @@
-// 로그인한 고객사 담당자: 요청과 처리 상태 보기(GET) · 유상 작업 동의/거절(POST)
+// 로그인한 고객사 담당자: 요청과 처리 상태 보기(GET) · 유료 작업 동의/거절(POST)
 // 고객사에 연결된 회원이면 그 회사 요청 전부, 아니면 본인이 로그인하고 남긴 요청만
-// 고객에게는 내부 정보(우선순위·응답 목표·담당자·처리 시간·작업 기록·원인·청구·메모)를 보내지 않는다
+// 고객에게는 내부 정보(우선순위·답변 기한·담당자·처리 시간·작업 기록·원인·청구·메모)를 보내지 않는다
 const { SB_URL, SB_KEY, TABLE, sbHeaders, readBody, getUser, signImages, signFiles, membershipOf, custStatus } = require('./_lib');
 
 module.exports = async (req, res) => {
@@ -22,7 +22,7 @@ module.exports = async (req, res) => {
   }
 
   if (req.method === 'POST') {
-    // 유상 작업 동의/거절: 그 회사(또는 본인) 요청이고, 승인 요청 중일 때만
+    // 유료 작업 동의/거절: 그 회사(또는 본인) 요청이고, 승인 요청 중일 때만
     const b = readBody(req);
     const id = Number(b.id);
     if (!Number.isInteger(id) || !['동의', '거절'].includes(b.decision)) return res.status(400).json({ error: '잘못된 요청이에요.' });

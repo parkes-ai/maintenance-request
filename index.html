@@ -168,7 +168,7 @@
       const d = await r.json().catch(() => ({}));
       const note = $('linkNote');
       if (!r.ok) {
-        note.textContent = d.error || '유효하지 않은 링크입니다. 담당자에게 문의해 주세요.';
+        note.textContent = d.error || '링크가 맞지 않아요. 담당자에게 물어봐 주세요.';
         note.classList.add('bad'); note.hidden = false;
         return;
       }

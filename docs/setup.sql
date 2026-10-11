@@ -216,3 +216,24 @@ drop trigger if exists customers_auto_code on public.customers;
 create trigger customers_auto_code before insert on public.customers
   for each row execute function public.customers_auto_code();
 update public.customers set code = 'C' || lpad(id::text, 3, '0') where code is null;
+
+-- v2.2: 화면 단어를 일상 말로 (저장 값도 함께 바꿈)
+alter table public.customers drop constraint if exists customers_billing_check;
+update public.customers set billing = case billing when '무상' then '무료' when '건당' then '건별' when '계약 범위 안' then '계약에 포함' else billing end;
+alter table public.customers alter column billing set default '무료';
+alter table public.customers add constraint customers_billing_check check (billing in ('무료', '건별', '시간당', '월 정액', '계약에 포함'));
+alter table public.maintenance_requests drop constraint if exists mr_billing_check, drop constraint if exists mr_category_check, drop constraint if exists mr_cause_check, drop constraint if exists mr_channel_check;
+update public.maintenance_requests set
+  billing_override = case billing_override when '무상' then '무료' when '건당' then '건별' when '계약 범위 안' then '계약에 포함' else billing_override end,
+  category = case category when '장애' then '고장' when '서비스 요청' then '일반 요청' when '변경 요청' then '기능 변경' else category end,
+  cause = case cause when '우리 결함' then '우리 프로그램 오류' when '사용 문의·교육' then '사용법 안내' when '추가 요청' then '추가 작업' when '고객 환경' then '고객 PC·환경' else cause end,
+  channel = case channel when '유선' then '전화' else channel end;
+alter table public.maintenance_requests
+  add constraint mr_billing_check check (billing_override is null or billing_override in ('무료', '건별', '시간당', '월 정액', '계약에 포함')),
+  add constraint mr_category_check check (category is null or category in ('고장', '일반 요청', '기능 변경')),
+  add constraint mr_cause_check check (cause is null or cause in ('우리 프로그램 오류', '사용법 안내', '추가 작업', '고객 PC·환경')),
+  add constraint mr_channel_check check (channel in ('웹', '전화', '이메일', '기타'));
+alter table public.staff drop constraint if exists staff_status_check;
+update public.staff set status = '근무 중' where status = '재직';
+alter table public.staff alter column status set default '근무 중';
+alter table public.staff add constraint staff_status_check check (status in ('근무 중', '퇴사'));

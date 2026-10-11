@@ -1,4 +1,4 @@
-// 관리자 화면 (요청함 · 요청 등록 · 고객사 · 인력 · 월 요약 · 회원)
+// 관리자 화면 (요청함 · 요청 등록 · 고객사 · 직원 · 월별 정리 · 회원)
 // 서버 키는 브라우저에 없다. 모든 읽기·쓰기는 /api/admin 이 비밀번호를 확인한 뒤에 한다.
 (function () {
   const $ = (id) => document.getElementById(id);
@@ -7,9 +7,9 @@
   const KINDS = ['오류', '수정 요청', '사용 문의'];
   const URGENCIES = ['보통', '급함', '업무 중단 중'];
   const PRIORITIES = ['긴급', '보통', '낮음'];
-  const CATEGORIES = ['장애', '서비스 요청', '변경 요청'];
-  const CAUSES = ['우리 결함', '사용 문의·교육', '추가 요청', '고객 환경'];
-  const BILLINGS = ['무상', '건당', '시간당', '월 정액', '계약 범위 안'];
+  const CATEGORIES = ['고장', '일반 요청', '기능 변경'];
+  const CAUSES = ['우리 프로그램 오류', '사용법 안내', '추가 작업', '고객 PC·환경'];
+  const BILLINGS = ['무료', '건별', '시간당', '월 정액', '계약에 포함'];
   const MODES = ['원격', '방문', '개발', '전화·메일'];
   const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ESC[c]);
@@ -33,7 +33,7 @@
   const staffName = (id) => (staff.find((s) => s.id === id) || {}).name || (id ? `#${id}` : '');
   const custById = (id) => customers.find((c) => c.id === Number(id));
 
-  // ───── 공통: 서버 요청 · 잠그기 · 알림 ─────
+  // ───── 공통: 서버 요청 · 로그아웃 · 알림 ─────
   async function api(method, body, query = '') {
     const r = await fetch('/api/admin' + query, { method, headers: { 'x-admin-password': memPw, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
     const d = await r.json().catch(() => ({}));
@@ -210,11 +210,11 @@
   const wlCache = {};
   function dueText(r) {
     if (r.status === '완료' || !r.respond_by) return '';
-    if (r.first_response_at) return `<span class="due ok">응답함 ${date(r.first_response_at)}</span>`;
+    if (r.first_response_at) return `<span class="due ok">첫 답변 ${date(r.first_response_at)}</span>`;
     const left = new Date(r.respond_by) - Date.now();
-    if (left < 0) return `<span class="due over">응답 목표 지남 (${date(r.respond_by)})</span>`;
+    if (left < 0) return `<span class="due over">답변 기한 지남 (${date(r.respond_by)})</span>`;
     const h = Math.floor(left / 3600000), m = Math.floor((left % 3600000) / 60000);
-    return `<span class="due ok">응답 목표 ${date(r.respond_by)} · ${h ? h + '시간 ' : ''}${m}분 남음</span>`;
+    return `<span class="due ok">답변 기한 ${date(r.respond_by)} · ${h ? h + '시간 ' : ''}${m}분 남음</span>`;
   }
   function procSummary(r) {
     const bits = [];
@@ -222,26 +222,26 @@
     if (r.category) bits.push(esc(r.category));
     bits.push(r.assigned_to ? `담당 <b>${esc(staffName(r.assigned_to))}</b>` : '담당 없음');
     bits.push(`처리 <b>${hm(r.minutes_spent)}</b>`);
-    bits.push(r.cause ? `원인 ${esc(r.cause)}` : '원인 미정');
+    bits.push(r.cause ? `원인 ${esc(r.cause)}` : '원인 안 정함');
     if (r.billing_override) bits.push(`청구 ${esc(r.billing_override)}`);
-    if (r.approval_status) bits.push(`유상 승인 <b>${esc(r.approval_status)}</b>`);
+    if (r.approval_status) bits.push(`유료 작업 동의 <b>${esc(r.approval_status === '요청함' ? '답 기다리는 중' : r.approval_status)}</b>`);
     return `<span class="proc-sum">${bits.join(' · ')}</span>`;
   }
   function procBody(r) {
-    const active = staff.filter((s) => s.status === '재직' || s.id === r.assigned_to);
+    const active = staff.filter((s) => s.status === '근무 중' || s.id === r.assigned_to);
     const custBilling = r.customers && r.customers.billing;
-    const effective = r.billing_override || (r.cause === '우리 결함' ? '무상' : (custBilling || '무상'));
+    const effective = r.billing_override || (r.cause === '우리 프로그램 오류' ? '무료' : (custBilling || '무료'));
     const logs = wlCache[r.id];
     const ap = r.approval_status;
     return `
       <div class="proc-body" data-proc="${r.id}">
         <div class="proc-grid">
           <label>우선순위<select data-p="priority">${opt(PRIORITIES, r.priority)}</select></label>
-          <label>유형<select data-p="category">${opt(CATEGORIES, r.category, '미분류')}</select></label>
+          <label>분류<select data-p="category">${opt(CATEGORIES, r.category, '안 정함')}</select></label>
           <label>원인 (완료 때 필수)<select data-p="cause">${opt(CAUSES, r.cause, '고르기')}</select></label>
           <label>담당자<select data-p="assigned_to"><option value="">없음</option>${active.map((s) => `<option value="${s.id}"${s.id === r.assigned_to ? ' selected' : ''}>${esc(s.name)}${s.status === '퇴사' ? ' (퇴사)' : ''}</option>`).join('')}</select></label>
-          <label>청구 예외<select data-p="billing_override">${opt(BILLINGS, r.billing_override, `고객사 기준 (${custBilling || '없음'})`)}</select></label>
-          <label>적용 청구 방식<input type="text" value="${esc(effective)}${effective === '무상' || effective === '계약 범위 안' ? ' · 무상 응대' : ''}" readonly></label>
+          <label>청구 방식 (이 요청만)<select data-p="billing_override">${opt(BILLINGS, r.billing_override, `회사 설정대로 (${custBilling || '없음'})`)}</select></label>
+          <label>실제 청구 방식<input type="text" value="${esc(effective)}${effective === '무료' || effective === '계약에 포함' ? ' · 무료 처리' : ''}" readonly></label>
         </div>
         <div>
           <h4>작업 기록 <span>처리 시간 합계 ${hm(r.minutes_spent)}</span></h4>
@@ -251,12 +251,12 @@
             <label>방식<select name="mode">${opt(MODES, '원격')}</select></label>
             <label>분<input type="number" name="minutes" min="1" max="1440" step="1" required placeholder="30"></label>
             <label>내용<input type="text" name="note" maxlength="500" placeholder="한 줄 메모"></label>
-            <label>한 사람<select name="staff_id"><option value="">-</option>${staff.filter((s) => s.status === '재직').map((s) => `<option value="${s.id}"${s.id === r.assigned_to ? ' selected' : ''}>${esc(s.name)}</option>`).join('')}</select></label>
+            <label>작업한 직원<select name="staff_id"><option value="">-</option>${staff.filter((s) => s.status === '근무 중').map((s) => `<option value="${s.id}"${s.id === r.assigned_to ? ' selected' : ''}>${esc(s.name)}</option>`).join('')}</select></label>
             <button type="submit">기록 추가</button>
           </form>
         </div>
         <div>
-          <h4>유상 작업 승인 <span>고객이 내 요청 내역에서 동의해요</span></h4>
+          <h4>유료 작업 동의 <span>고객이 내 요청 내역에서 동의해요</span></h4>
           ${ap ? `<div class="ap-state${ap === '동의' ? ' yes' : ap === '거절' ? ' no' : ''}">
               <b>${esc(ap === '요청함' ? '고객 답변 기다리는 중' : ap === '동의' ? '고객이 동의함' : '고객이 동의하지 않음')}</b> · 예상 ${hm(r.approval_minutes)} · ${esc(r.approval_note || '')}
               <div style="color:var(--muted);font-size:13px;margin-top:4px">요청 ${stamp(r.approval_requested_at)}${r.approval_decided_at ? ` · 답변 ${stamp(r.approval_decided_at)} (${esc(r.approval_by || '')})` : ''}</div>
@@ -265,7 +265,7 @@
           : `<form class="ap-form" data-ap="${r.id}">
               <label>예상 시간(분)<input type="number" name="minutes" min="1" step="1" required placeholder="180"></label>
               <label>무슨 작업인지 (고객에게 보여요)<input type="text" name="note" maxlength="1000" required placeholder="예: 보고서에 열 2개 추가 개발"></label>
-              <button type="submit">승인 요청</button>
+              <button type="submit">동의 요청 보내기</button>
             </form>`}
         </div>
       </div>`;
@@ -314,7 +314,7 @@
         <div class="body-view" data-body="${r.id}"></div>
         <ul class="files-view" data-files="${r.id}" hidden></ul>`}
         ${legacyImgs}
-        ${r.status === '보류' && r.hold_reason ? `<p class="hold">보류 사유: ${esc(r.hold_reason)}</p>` : ''}
+        ${r.status === '보류' && r.hold_reason ? `<p class="hold">보류 이유: ${esc(r.hold_reason)}</p>` : ''}
         <form class="memo" data-id="${r.id}">
           <input type="text" maxlength="2000" placeholder="메모 (관리자만 보여요)" aria-label="${esc(no(r))} 메모" value="${esc(drafts[r.id] ?? r.memo ?? '')}">
           <button type="submit"${drafts[r.id] === undefined ? ' disabled' : ''}>저장</button>
@@ -403,7 +403,7 @@
       if (!d.unchanged) {
         delete histCache[id];
         await load();
-        toast(key === 'assigned_to' && sel.value ? '담당자를 정했어요' : key === 'priority' ? '우선순위를 바꾸고 응답 목표를 다시 계산했어요' : '저장했어요');
+        toast(key === 'assigned_to' && sel.value ? '담당자를 정했어요' : key === 'priority' ? '우선순위를 바꾸고 답변 기한을 다시 계산했어요' : '저장했어요');
       }
     } catch (err) { showErr('err', err); await load(); }
   });
@@ -429,7 +429,7 @@
         await api('PATCH', { id, approval: { minutes: Number(fd.get('minutes')), note: fd.get('note') } });
         delete histCache[id];
         await load();
-        toast('고객에게 유상 작업 승인을 요청했어요');
+        toast('고객에게 유료 작업 동의를 요청했어요');
       }
     } catch (err) { btn.disabled = false; showErr('err', err); }
   });
@@ -457,8 +457,8 @@
     }
     const apc = t.closest('[data-apcancel]');
     if (apc) {
-      if (!confirm('유상 승인 요청 기록을 지울까요?')) return;
-      try { await api('PATCH', { id: Number(apc.dataset.apcancel), approval: { cancel: true } }); delete histCache[Number(apc.dataset.apcancel)]; await load(); toast('승인 요청을 지웠어요'); }
+      if (!confirm('유료 작업 동의 요청 기록을 지울까요?')) return;
+      try { await api('PATCH', { id: Number(apc.dataset.apcancel), approval: { cancel: true } }); delete histCache[Number(apc.dataset.apcancel)]; await load(); toast('동의 요청을 지웠어요'); }
       catch (err) { showErr('err', err); }
       return;
     }
@@ -502,7 +502,7 @@
     if (!b || b.classList.contains('on')) return;
     const id = Number(b.dataset.id), s = b.dataset.s;
     let reason;
-    if (s === '보류') { reason = prompt('보류 사유를 적어 주세요. (예: 고객 자료 대기)'); if (reason === null) return; if (!reason.trim()) return toast('보류 사유를 적어 주세요'); }
+    if (s === '보류') { reason = prompt('보류 이유를 적어 주세요. (예: 고객 자료 대기)'); if (reason === null) return; if (!reason.trim()) return toast('보류 이유를 적어 주세요'); }
     b.disabled = true;
     try {
       const d = await api('PATCH', { id, status: s, reason });
@@ -580,7 +580,7 @@
   };
 
   // ───── 변경 기록 ─────
-  const FIELD = { status: '상태', memo: '메모', company: '회사', customer_id: '고객사', program: '프로그램', name: '이름', contact: '이메일', phone: '전화', kind: '요청 종류', urgency: '급한 정도', message: '내용', priority: '우선순위', category: '유형', cause: '원인', assigned_to: '담당자', billing_override: '청구 예외', hold_reason: '보류 사유', minutes: '처리 시간(분)', approval: '유상 승인', channel: '접수 경로' };
+  const FIELD = { status: '상태', memo: '메모', company: '회사', customer_id: '고객사', program: '프로그램', name: '이름', contact: '이메일', phone: '전화', kind: '요청 종류', urgency: '급한 정도', message: '내용', priority: '우선순위', category: '분류', cause: '원인', assigned_to: '담당자', billing_override: '청구 방식(이 요청만)', hold_reason: '보류 이유', minutes: '처리 시간(분)', approval: '유료 작업 동의', channel: '받은 방법' };
   const HIST_KINDS = { status: '상태', process: '처리', memo: '메모', content: '내용 수정' };
   const kindOf = (k) => (k === 'status' || k === 'hold_reason' ? 'status' : k === 'memo' ? 'memo' : ['priority', 'category', 'cause', 'assigned_to', 'billing_override', 'minutes', 'approval'].includes(k) ? 'process' : 'content');
   let histKind = '';
@@ -634,7 +634,7 @@
   };
   $('csv').onclick = () => {
     if (!shown.length) return toast('내려받을 요청이 없어요');
-    const head = ['접수번호', '접수 일시', '접수 경로', '회사', '구분', '이름', '이메일', '전화', '프로그램', '요청 종류', '급한 정도', '우선순위', '유형', '원인', '담당자', '처리 시간(분)', '청구 예외', '내용', '첨부 수', '상태', '보류 사유', '완료 일시', '유상 승인', '메모'];
+    const head = ['접수번호', '접수 일시', '받은 방법', '회사', '구분', '이름', '이메일', '전화', '프로그램', '요청 종류', '급한 정도', '우선순위', '분류', '원인', '담당자', '처리 시간(분)', '청구 방식(이 요청만)', '내용', '첨부 수', '상태', '보류 이유', '완료 일시', '유료 작업 동의', '메모'];
     saveCsv('requests', head, shown.map((r) => [no(r), stamp(r.created_at), r.channel || '웹', companyName(r), r.customer_id ? '고객사' : '신규 문의', r.name, r.contact, r.phone, r.program, r.kind, r.urgency, r.priority, r.category, r.cause, staffName(r.assigned_to), r.minutes_spent || 0, r.billing_override, r.message,
       (r.attachments || []).length + (r.images || []).length, r.status, r.hold_reason, stamp(r.completed_at), r.approval_status, r.memo]));
     toast(`${shown.length}건을 내려받았어요`);
@@ -767,7 +767,7 @@
     } catch (err) { showErr('custErr', err); }
   });
 
-  // ───── 인력 ─────
+  // ───── 직원 ─────
   const staffOpen = new Set();
   async function drawStaff(reload) {
     $('staffErr').hidden = true;
@@ -777,21 +777,21 @@
       rows.forEach((r) => { if (r.assigned_to && r.status !== '완료') busy[r.assigned_to] = (busy[r.assigned_to] || 0) + 1; });
       $('staffList').innerHTML = staff.length ? staff.map((s) => `
         <article class="item staff${s.status === '퇴사' ? ' off' : ''}">
-          <h3>${esc(s.name)} <span class="pill${s.status === '재직' ? ' new' : ''}">${esc(s.status)}</span></h3>
-          <p class="meta-line">${s.email ? esc(s.email) : '이메일 없음'}${s.phone ? ' · ' + esc(s.phone) : ''}${s.availability ? ' · 가용 ' + esc(s.availability) : ''}</p>
+          <h3>${esc(s.name)} <span class="pill${s.status === '근무 중' ? ' new' : ''}">${esc(s.status)}</span></h3>
+          <p class="meta-line">${s.email ? esc(s.email) : '이메일 없음'}${s.phone ? ' · ' + esc(s.phone) : ''}${s.availability ? ' · 가능 ' + esc(s.availability) : ''}</p>
           <p class="counts">맡은 진행 중 요청 ${busy[s.id] || 0}건 · ${s.joined_at ? '등록 ' + esc(s.joined_at) : ''}${s.left_at ? ' · 퇴사 ' + esc(s.left_at) : ''}</p>
           <div class="cust-actions">
             <button type="button" data-sinfo="${s.id}">정보 고치기</button>
-            <button type="button" data-sstat="${s.id}" data-to="${s.status === '재직' ? '퇴사' : '재직'}">${s.status === '재직' ? '퇴사 처리' : '재직으로 되돌리기'}</button>
+            <button type="button" data-sstat="${s.id}" data-to="${s.status === '근무 중' ? '퇴사' : '근무 중'}">${s.status === '근무 중' ? '퇴사 처리' : '근무 중으로 되돌리기'}</button>
           </div>
           ${staffOpen.has(s.id) ? `<form class="info-form" data-sform="${s.id}">
             <label>이름<input name="name" maxlength="50" value="${esc(s.name)}"></label>
             <label>이메일<input name="email" type="email" maxlength="100" value="${esc(s.email || '')}"></label>
             <label>전화<input name="phone" maxlength="20" value="${esc(s.phone || '')}"></label>
-            <label>가용 시간<input name="availability" maxlength="200" value="${esc(s.availability || '')}"></label>
+            <label>가능한 시간<input name="availability" maxlength="200" value="${esc(s.availability || '')}"></label>
             <div class="acts"><button type="button" class="row-btn line" data-sclose="${s.id}">닫기</button><button type="submit">저장</button></div>
           </form>` : ''}
-        </article>`).join('') : '<div class="empty">아직 등록한 인력이 없어요. 위에서 이름을 적어 추가해 주세요.</div>';
+        </article>`).join('') : '<div class="empty">아직 등록한 직원이 없어요. 위에서 이름을 적어 추가해 주세요.</div>';
     } catch (err) { showErr('staffErr', err); }
   }
   $('staffAdd').addEventListener('submit', async (e) => {
@@ -800,7 +800,7 @@
       await api('POST', { name: $('staffName').value, email: $('staffEmail').value, phone: $('staffPhone').value, availability: $('staffAvail').value }, '?view=staff');
       ['staffName', 'staffEmail', 'staffPhone', 'staffAvail'].forEach((id) => { $(id).value = ''; });
       await drawStaff(true);
-      toast('인력을 추가했어요');
+      toast('직원을 추가했어요');
     } catch (err) { showErr('staffErr', err); }
   });
   $('staffList').addEventListener('click', async (e) => {
@@ -811,7 +811,7 @@
     const st = e.target.closest('[data-sstat]');
     if (!st) return;
     if (st.dataset.to === '퇴사' && !confirm('퇴사 처리할까요? 지난 기록은 남고, 담당자 목록에서만 빠져요.')) return;
-    try { await api('PATCH', { id: Number(st.dataset.sstat), info: { status: st.dataset.to } }, '?view=staff'); await drawStaff(true); toast(st.dataset.to === '퇴사' ? '퇴사 처리했어요' : '재직으로 되돌렸어요'); }
+    try { await api('PATCH', { id: Number(st.dataset.sstat), info: { status: st.dataset.to } }, '?view=staff'); await drawStaff(true); toast(st.dataset.to === '퇴사' ? '퇴사 처리했어요' : '근무 중으로 되돌렸어요'); }
     catch (err) { showErr('staffErr', err); }
   });
   $('staffList').addEventListener('submit', async (e) => {
@@ -820,11 +820,11 @@
     const id = Number(f.dataset.sform), fd = new FormData(f);
     try {
       await api('PATCH', { id, info: { name: fd.get('name'), email: fd.get('email'), phone: fd.get('phone'), availability: fd.get('availability') } }, '?view=staff');
-      staffOpen.delete(id); await drawStaff(true); toast('인력 정보를 저장했어요');
+      staffOpen.delete(id); await drawStaff(true); toast('직원 정보를 저장했어요');
     } catch (err) { showErr('staffErr', err); }
   });
 
-  // ───── 월 요약 · 월 응대 보고서 ─────
+  // ───── 월별 정리 · 월 응대 보고서 ─────
   let summary = null;
   async function loadSummary() {
     if (!$('sumMonth').value) $('sumMonth').value = todayKst().slice(0, 7);
@@ -843,12 +843,12 @@
             <dl class="ms">
               <div><dt>접수</dt><dd>${g.total}<small>건 (완료 ${g.done})</small></dd></div>
               <div><dt>처리 시간</dt><dd>${hours(g.minutes)}<small>시간</small></dd></div>
-              <div><dt>무상 응대</dt><dd>${hours(g.free_minutes)}<small>시간${ratio !== null ? ` · ${ratio}%` : ''}</small></dd></div>
-              <div><dt>${quota !== null ? '월 정액 사용' : '응답 목표 달성'}</dt><dd${quota !== null && quota > 100 ? ' class="over-quota"' : ''}>${quota !== null ? `${quota}<small>%</small>` : g.responded ? `${Math.round((g.on_time / g.responded) * 100)}<small>% (${g.on_time}/${g.responded})</small>` : '<small>-</small>'}</dd></div>
+              <div><dt>무료 처리</dt><dd>${hours(g.free_minutes)}<small>시간${ratio !== null ? ` · ${ratio}%` : ''}</small></dd></div>
+              <div><dt>${quota !== null ? '월 정액 사용' : '기한 안에 답변'}</dt><dd${quota !== null && quota > 100 ? ' class="over-quota"' : ''}>${quota !== null ? `${quota}<small>%</small>` : g.responded ? `${Math.round((g.on_time / g.responded) * 100)}<small>% (${g.on_time}/${g.responded})</small>` : '<small>-</small>'}</dd></div>
             </dl>
             <p class="chips-line">원인: ${chips(g.by_cause)}</p>
-            <p class="chips-line">유형: ${chips(g.by_category)} · 요청 종류: ${chips(g.by_kind)}</p>
-            ${g.approvals.요청함 + g.approvals.동의 + g.approvals.거절 ? `<p class="chips-line">유상 승인: 동의 ${g.approvals.동의} · 거절 ${g.approvals.거절} · 대기 ${g.approvals.요청함}</p>` : ''}
+            <p class="chips-line">분류: ${chips(g.by_category)} · 요청 종류: ${chips(g.by_kind)}</p>
+            ${g.approvals.요청함 + g.approvals.동의 + g.approvals.거절 ? `<p class="chips-line">유료 작업 동의: 동의 ${g.approvals.동의} · 거절 ${g.approvals.거절} · 대기 ${g.approvals.요청함}</p>` : ''}
             <div class="cust-actions" style="margin-top:10px"><button type="button" data-report="${i}">월 응대 보고서 보기</button></div>
           </article>`;
       }).join('') : `<div class="empty">${y}년 ${Number(m)}월에 접수된 요청이 없어요.</div>`;
@@ -869,15 +869,15 @@
       <dl class="ms">
         <div><dt>접수</dt><dd>${g.total}<small>건 (완료 ${g.done})</small></dd></div>
         <div><dt>처리 시간 합계</dt><dd>${hours(g.minutes)}<small>시간</small></dd></div>
-        <div><dt>무상 응대 시간</dt><dd>${hours(g.free_minutes)}<small>시간${ratio !== null ? ` · ${ratio}%` : ''}</small></dd></div>
-        <div><dt>${quota ? '월 정액 사용' : '응답 목표 달성'}</dt><dd><small>${quota || (g.responded ? `${Math.round((g.on_time / g.responded) * 100)}% (${g.on_time}/${g.responded})` : '-')}</small></dd></div>
+        <div><dt>무료로 처리한 시간</dt><dd>${hours(g.free_minutes)}<small>시간${ratio !== null ? ` · ${ratio}%` : ''}</small></dd></div>
+        <div><dt>${quota ? '월 정액 사용' : '기한 안에 답변'}</dt><dd><small>${quota || (g.responded ? `${Math.round((g.on_time / g.responded) * 100)}% (${g.on_time}/${g.responded})` : '-')}</small></dd></div>
       </dl>
       <p class="chips-line">원인별: ${Object.entries(g.by_cause).map(([k, n]) => `${esc(k)} ${n}건`).join(' · ')}</p>
       <div class="r-table"><table>
         <thead><tr><th>접수번호</th><th>접수일</th><th>요청</th><th>종류</th><th>원인</th><th>처리 시간</th><th>구분</th><th>상태</th></tr></thead>
-        <tbody>${g.rows.map((r) => `<tr><td class="n">${esc(r.no)}</td><td class="n">${esc(new Date(r.created_at).toLocaleDateString('ko-KR'))}</td><td>${esc(r.summary)}</td><td>${esc(r.kind)}</td><td>${esc(r.cause || '-')}</td><td class="n">${hm(r.minutes)}</td><td>${r.free ? '무상' : esc(r.billing)}</td><td>${esc(r.status)}</td></tr>`).join('')}</tbody>
+        <tbody>${g.rows.map((r) => `<tr><td class="n">${esc(r.no)}</td><td class="n">${esc(new Date(r.created_at).toLocaleDateString('ko-KR'))}</td><td>${esc(r.summary)}</td><td>${esc(r.kind)}</td><td>${esc(r.cause || '-')}</td><td class="n">${hm(r.minutes)}</td><td>${r.free ? '무료' : esc(r.billing)}</td><td>${esc(r.status)}</td></tr>`).join('')}</tbody>
       </table></div>
-      <p class="r-note">처리 시간은 작업 기록의 합계예요. 무상 = 청구 방식이 무상·계약 범위 안이거나, 원인이 저희 프로그램 결함인 경우예요. 숫자는 ${esc(new Date().toLocaleString('ko-KR'))} 기준이에요.</p>
+      <p class="r-note">처리 시간은 작업 기록의 합계예요. 무료 = 청구 방식이 "무료"나 "계약에 포함"인 요청, 또는 원인이 우리 프로그램 오류인 요청이에요. 숫자는 ${esc(new Date().toLocaleString('ko-KR'))} 기준이에요.</p>
       <div class="report-acts"><button type="button" class="row-btn line" id="repClose">닫기</button><button type="button" class="row-btn" id="repPrint">인쇄 · PDF로 저장</button></div>`;
     $('report').hidden = false;
     $('report').scrollIntoView({ behavior: 'smooth' });
