@@ -310,3 +310,10 @@ p.tel span:last-child { font-family: var(--sans); font-size: 15px; letter-spacin
 .similar b { display: block; margin-bottom: 4px; }
 .similar ul { margin: 0; padding-left: 18px; }
 .notice { padding: 12px 14px; margin: 0 0 24px; border: 1px solid var(--line); background: var(--paper); font-size: 14px; color: var(--muted); }
+/* 내 요청 내역: 유상 작업 동의 */
+.approve { margin: 4px 0 4px; padding: 14px 16px; border: 1px solid var(--accent); background: var(--accent-soft); }
+.approve b { display: block; margin-bottom: 4px; }
+.approve p { margin: 0 0 8px; font-size: 15px; }
+.ap-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.ap-btns .btn { min-height: 44px; font-size: 15px; padding: 0 18px; }
+.approved { font-size: 14px; color: var(--muted); margin: 4px 0 0; }
