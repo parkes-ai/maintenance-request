@@ -7,44 +7,48 @@
 <title>요청함 관리</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@500;700&display=swap">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500&family=Noto+Serif+KR:wght@300;400&family=Space+Grotesk:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap">
 <link rel="stylesheet" href="/assets/style.css">
 <style>
   .sum { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 24px 0 12px; }
-  .sum button { text-align: left; background: var(--card); border: 1px solid var(--line); border-top: 4px solid var(--c); border-radius: 10px; padding: 10px 12px; font: inherit; color: var(--muted); cursor: pointer; }
-  .sum button b { display: block; font: 700 30px/1.1 var(--head); color: var(--ink); font-variant-numeric: tabular-nums; }
+  .sum button { text-align: left; background: var(--card); border: 1px solid var(--line); border-top: 4px solid var(--c); padding: 10px 12px; font: inherit; color: var(--muted); cursor: pointer; }
+  .sum button b { display: block; font: 400 36px/1.1 var(--head); color: var(--ink); font-variant-numeric: tabular-nums; }
   .sum button.on { background: var(--ink); color: #fff; border-color: var(--ink); border-top-color: var(--c); }
   .sum button.on b { color: #fff; }
   .sum .all { grid-column: 1 / -1; border-top-width: 1px; padding: 8px 12px; text-align: center; }
+  .sum .all { border-top: 1px solid var(--line); }
+  .sum .all.on { background: transparent; color: var(--ink); border-color: var(--ink); border-top-color: var(--ink); }
+  .sum .all { font-size: 14px; letter-spacing: .04em; }
   .filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
-  .filters button { min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); font: inherit; font-size: 15px; cursor: pointer; color: var(--ink); }
+  .filters button { min-height: 40px; padding: 0 14px; border: 1px solid var(--line); background: var(--card); font: inherit; font-size: 15px; cursor: pointer; color: var(--ink); }
   .filters button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
   .who { font-size: 15px; margin: 0 0 8px; }
-  .copy { font: inherit; background: var(--bg); border: 1px dashed #cdd3dd; border-radius: 6px; padding: 2px 8px; cursor: pointer; color: var(--ink); }
+  .copy { font: inherit; background: var(--bg); border: 1px dashed var(--line-strong); padding: 2px 8px; cursor: pointer; color: var(--ink); }
   .states { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-  .states button { min-height: 44px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); font: inherit; font-size: 15px; cursor: pointer; color: var(--muted); }
-  .states button.on { color: #fff; font-weight: 700; border-color: transparent; }
+  .states button { min-height: 44px; border: 1px solid var(--line); background: var(--card); font: inherit; font-size: 15px; cursor: pointer; color: var(--muted); }
+  .states button.on { color: #fff; font-weight: 600; border-color: transparent; }
   .states button.on[data-s="새 요청"] { background: var(--accent); }
   .states button.on[data-s="처리 중"] { background: var(--amber); }
   .states button.on[data-s="완료"] { background: var(--green); }
-  .late-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%; margin: 24px 0 0; padding: 12px 14px; border: 1px solid #f1c3bf; border-radius: 10px; background: var(--red-soft); color: var(--red); font: inherit; font-weight: 600; text-align: left; cursor: pointer; }
-  .late-bar b { font: 700 22px/1 var(--head); font-variant-numeric: tabular-nums; }
+  .late-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%; margin: 24px 0 0; padding: 12px 14px; border: 1px solid #e2b7b0; background: var(--red-soft); color: var(--red); font: inherit; font-weight: 600; text-align: left; cursor: pointer; }
+  .late-bar b { font: 400 22px/1 var(--head); font-variant-numeric: tabular-nums; }
   .late-bar span:last-child { font-size: 14px; white-space: nowrap; text-decoration: underline; }
   .late-bar + .sum { margin-top: 12px; }
   .item.late { border-color: var(--red); box-shadow: inset 0 0 0 1px var(--red); }
   .wait { color: var(--red); font-weight: 700; }
   .trend { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; margin: 12px 0 16px; }
   .trend-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 20px; }
-  .trend-head h2 { font: 700 16px/1.3 var(--head); margin: 0; }
+  .trend-head h2 { font: 400 16px/1.3 var(--head); margin: 0; }
   .trend-head span { color: var(--muted); font-size: 14px; }
-  .chart { position: relative; display: grid; grid-template-columns: repeat(30, 1fr); gap: 2px; height: 120px; align-items: end; border-bottom: 1px solid #cdd3dd; }
+  .chart { position: relative; display: grid; grid-template-columns: repeat(30, 1fr); gap: 2px; height: 120px; align-items: end; border-bottom: 1px solid var(--line-strong); }
   .chart .col { position: relative; height: 100%; display: flex; align-items: flex-end; }
-  .chart .col i { display: block; width: 100%; background: var(--accent); border-radius: 4px 4px 0 0; }
-  .chart .col:hover i, .chart .col:focus-visible i { background: #1a3ea6; }
+  .chart .col i { display: block; width: 100%; background: var(--accent); border-radius: 1px 1px 0 0; }
+  .chart .col:hover i, .chart .col:focus-visible i { background: var(--accent-deep); }
   .chart .col:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .chart .peak { position: absolute; left: 50%; transform: translateX(-50%); font-size: 12px; font-weight: 700; color: var(--ink); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .chart .peak { position: absolute; left: 50%; transform: translateX(-50%); font-family: var(--mono); font-size: 12px; font-weight: 400; color: var(--ink); white-space: nowrap; font-variant-numeric: tabular-nums; }
   .axis { display: flex; justify-content: space-between; color: var(--muted); font-size: 13px; margin-top: 4px; }
-  .tip { position: absolute; z-index: 5; pointer-events: none; transform: translate(-50%, -100%); background: var(--ink); color: #fff; font-size: 13px; padding: 4px 8px; border-radius: 6px; white-space: nowrap; }
+  .tip { position: absolute; z-index: 5; pointer-events: none; transform: translate(-50%, -100%); background: var(--ink); color: #fff; font-size: 13px; padding: 4px 8px; white-space: nowrap; }
   .trend details { margin-top: 8px; font-size: 14px; }
   .trend summary { cursor: pointer; color: var(--muted); }
   .trend table { border-collapse: collapse; margin-top: 6px; font-variant-numeric: tabular-nums; }
@@ -53,14 +57,14 @@
   .csv .btn { min-height: 44px; font-size: 15px; padding: 0 16px; }
   .csv .hint { margin: 0; }
   .memo { display: flex; gap: 6px; margin: 0 0 10px; }
-  .memo input { flex: 1; min-width: 0; min-height: 44px; padding: 8px 12px; font-size: 15px; background: #fffdf3; border-color: #e6dcb0; }
-  .memo button { flex: none; min-height: 44px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); font: inherit; font-size: 15px; cursor: pointer; color: var(--ink); }
+  .memo input { flex: 1; min-width: 0; min-height: 44px; padding: 8px 12px; font-size: 15px; background: #f9f6ec; border-color: var(--line-strong); }
+  .memo button { flex: none; min-height: 44px; padding: 0 14px; border: 1px solid var(--line); background: var(--card); font: inherit; font-size: 15px; cursor: pointer; color: var(--ink); }
   .memo button:disabled { color: var(--muted); cursor: default; }
   .tabs { display: flex; gap: 4px; margin: 20px 0 0; border-bottom: 1px solid var(--line); }
-  .tabs button { min-height: 44px; padding: 0 16px; border: 0; border-bottom: 3px solid transparent; margin-bottom: -1px; background: none; font: 600 16px/1 var(--head); color: var(--muted); cursor: pointer; }
+  .tabs button { min-height: 44px; padding: 0 16px; border: 0; border-bottom: 3px solid transparent; margin-bottom: -1px; background: none; font: 600 15px/1 var(--sans); color: var(--muted); cursor: pointer; }
   .tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ink); }
   .mem-count { margin: 20px 0 12px; color: var(--muted); }
-  .mem-count b { font: 700 30px/1 var(--head); color: var(--ink); margin-right: 6px; font-variant-numeric: tabular-nums; }
+  .mem-count b { font: 400 34px/1 var(--head); color: var(--ink); margin-right: 6px; font-variant-numeric: tabular-nums; }
   .member { display: grid; gap: 2px; }
   .member .email { font: inherit; font-weight: 600; word-break: break-all; text-align: left; padding: 6px 0; background: none; border: 0; color: var(--accent); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
   .del-row { display: flex; justify-content: flex-end; margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--line); }
@@ -68,21 +72,21 @@
   .del:hover, .del:focus-visible { color: var(--red); }
   .pick { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; margin: -6px 0 -6px -6px; cursor: pointer; }
   .pick input { width: 20px; height: 20px; margin: 0; cursor: pointer; accent-color: var(--accent); }
-  .item.picked { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); background: #f7f9ff; }
+  .item.picked { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); background: var(--accent-soft); }
   .sel-bar {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
     display: flex; flex-wrap: wrap; align-items: center; gap: 8px; justify-content: center;
     padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); background: var(--ink); color: #fff;
   }
   .sel-bar span { margin-right: auto; }
-  .sel-bar b { font: 700 20px/1 var(--head); font-variant-numeric: tabular-nums; margin-right: 2px; }
-  .sel-bar button { min-height: 40px; padding: 0 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,.35); background: none; color: #fff; font: inherit; font-size: 14px; cursor: pointer; }
+  .sel-bar b { font: 400 20px/1 var(--head); font-variant-numeric: tabular-nums; margin-right: 2px; }
+  .sel-bar button { min-height: 40px; padding: 0 12px; border: 1px solid rgba(255,255,255,.35); background: none; color: #fff; font: inherit; font-size: 14px; cursor: pointer; }
   .sel-bar button.danger { background: var(--red); border-color: var(--red); font-weight: 700; }
   .sel-on .toast { bottom: 120px; }
-  @media (min-width: 720px) { .sel-bar { left: 50%; right: auto; transform: translateX(-50%); bottom: 16px; border-radius: 12px; width: min(688px, calc(100% - 32px)); } }
+  @media (min-width: 720px) { .sel-bar { left: 50%; right: auto; transform: translateX(-50%); bottom: 16px; width: min(688px, calc(100% - 32px)); } }
   .hist { margin: 0 0 10px; font-size: 14px; }
   .hist summary { cursor: pointer; color: var(--amber); font-weight: 600; padding: 4px 0; }
-  .hist-body { margin-top: 6px; padding: 10px 12px; border-left: 3px solid var(--amber-soft); background: #fffaf0; border-radius: 0 8px 8px 0; display: grid; gap: 12px; }
+  .hist-body { margin-top: 6px; padding: 10px 12px; border-left: 3px solid var(--amber-soft); background: var(--paper); display: grid; gap: 12px; }
   .hist-when { color: var(--muted); font-size: 13px; margin-bottom: 2px; }
   .hist-row { display: grid; grid-template-columns: auto 1fr; gap: 0 8px; align-items: baseline; }
   .hist-row b { grid-row: span 2; font-weight: 600; min-width: 64px; }
@@ -94,7 +98,7 @@
   .del-row .edit-btn { margin-right: auto; }
   .del-row .edit-btn:hover, .del-row .edit-btn:focus-visible { color: var(--accent); }
   .edited { color: var(--amber); font-weight: 600; }
-  .edit { display: grid; gap: 10px; margin: 4px 0 12px; padding: 12px; border-radius: 10px; background: var(--bg); }
+  .edit { display: grid; gap: 10px; margin: 4px 0 12px; padding: 12px; background: var(--bg); }
   .edit label { display: grid; gap: 4px; font-size: 14px; font-weight: 600; }
   .edit input, .edit select, .edit textarea { min-height: 44px; font-size: 15px; padding: 8px 12px; font-weight: 400; }
   .edit textarea { min-height: 110px; }
@@ -102,7 +106,7 @@
   @media (min-width: 560px) { .edit-grid { grid-template-columns: 1fr 1fr; } }
   .edit .hint { margin: 0; }
   .edit-actions { display: flex; justify-content: flex-end; gap: 8px; }
-  .edit-actions button { min-height: 44px; padding: 0 18px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); font: inherit; font-size: 15px; cursor: pointer; color: var(--ink); }
+  .edit-actions button { min-height: 44px; padding: 0 18px; border: 1px solid var(--line); background: var(--card); font: inherit; font-size: 15px; cursor: pointer; color: var(--ink); }
   .edit-actions .primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
   .hist-kinds { align-items: center; margin: 0 0 8px; }
   .hist-kinds span { color: var(--muted); font-size: 14px; margin-right: 2px; }
@@ -110,24 +114,24 @@
   .search input { min-height: 48px; }
   .search .hint { margin: 4px 0 0; min-height: 0; }
   .search .hint:empty { display: none; }
-  .user-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 16px 0 0; padding: 10px 14px; border-radius: 10px; background: var(--accent-soft); color: var(--ink); font-size: 15px; }
+  .user-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 16px 0 0; padding: 10px 14px; background: var(--accent-soft); color: var(--ink); font-size: 15px; }
   .user-bar b { word-break: break-all; }
-  .user-bar button { flex: none; min-height: 40px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--accent); background: var(--card); color: var(--accent); font: inherit; font-size: 14px; cursor: pointer; }
+  .user-bar button { flex: none; min-height: 40px; padding: 0 12px; border: 1px solid var(--accent); background: var(--card); color: var(--accent); font: inherit; font-size: 14px; cursor: pointer; }
   .member .when { color: var(--muted); font-size: 14px; }
   .mem-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
   .reqs { flex: none; color: var(--muted); font-size: 14px; white-space: nowrap; }
-  .reqs b { font: 700 18px/1 var(--head); color: var(--ink); font-variant-numeric: tabular-nums; }
+  .reqs b { font: 400 18px/1 var(--head); color: var(--ink); font-variant-numeric: tabular-nums; }
   .reqs small { font-size: 13px; color: var(--amber); }
   .bar { display: flex; justify-content: space-between; align-items: center; }
 </style>
 </head>
 <body>
-<header class="top"><div class="wrap bar">
-  <span class="brand">요청함 관리</span>
+<header class="mast"><div class="wrap read">
+  <span class="brand"><b>요청함 관리</b><span class="mono">Admin</span></span>
   <nav class="nav"><button type="button" id="reload" hidden>새로고침</button><button type="button" id="out" hidden>잠그기</button></nav>
 </div></header>
 
-<main class="wrap">
+<main class="wrap read">
   <form class="card narrow" id="lock" style="margin:32px auto">
     <h2>관리자 비밀번호</h2>
     <p class="sub">비밀번호는 이 탭을 닫으면 지워져요.</p>
