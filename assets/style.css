@@ -272,3 +272,6 @@ textarea { min-height: 160px; resize: vertical; }
 .link-note { padding: 12px 14px; border-left: 2px solid var(--accent); background: var(--accent-soft); color: var(--ink) !important; }
 .link-note.bad { border-left-color: var(--danger); background: var(--danger-soft); color: var(--danger) !important; }
 input[readonly] { background: var(--accent-soft); border-color: var(--accent-soft); color: var(--ink); }
+/* 첫 화면 버튼 옆 답변 안내 (예전 TEL 자리) */
+p.tel { margin: 0; }
+p.tel span:last-child { font-family: var(--sans); font-size: 15px; letter-spacing: 0; color: var(--muted); border-bottom: 0; padding-bottom: 0; }
