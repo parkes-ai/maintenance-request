@@ -73,6 +73,37 @@ const FILE_TYPES = {
 };
 const PENDING_RE = /^pending\/\d{4}-\d{2}\/[0-9a-f-]{36}\.(png|jpe?g|pdf|txt|log|csv|xlsx?|docx?|pptx?|hwpx?|zip)$/;
 
+const clipText = (v, n) => String(v ?? '').trim().slice(0, n);
+// 본문 확인: [{t:'text', v}, {t:'img', p}] — 이미지 5장, 글은 maxText자까지(관리자 직접 등록은 제한 없음)
+function cleanBody(raw, maxText = 50000) {
+  if (!Array.isArray(raw)) return { error: '요청 내용을 입력하거나 이미지를 붙여넣어 주세요.' };
+  const body = [];
+  let chars = 0, imgs = 0;
+  for (const s of raw.slice(0, 400)) {
+    if (s && s.t === 'text' && typeof s.v === 'string' && s.v) {
+      chars += s.v.length;
+      const last = body[body.length - 1];
+      if (last && last.t === 'text') last.v += s.v; else body.push({ t: 'text', v: s.v });
+    } else if (s && s.t === 'img' && PENDING_RE.test(String(s.p)) && /\.(png|jpe?g)$/.test(s.p)) {
+      if (++imgs > 5) return { error: '본문 이미지는 5장까지 넣을 수 있어요.' };
+      body.push({ t: 'img', p: s.p });
+    }
+  }
+  if (maxText && chars > maxText) return { error: '요청 내용이 너무 깁니다. 나누어 접수해 주세요.' };
+  if (!bodyText(body) && !imgs) return { error: '요청 내용을 입력하거나 이미지를 붙여넣어 주세요.' };
+  return { body, imgs };
+}
+function cleanFiles(raw) {
+  const list = Array.isArray(raw) ? raw : [];
+  if (list.length > 5) return { error: '첨부파일은 5개까지 올릴 수 있어요.' };
+  const files = [];
+  for (const a of list) {
+    if (!a || !PENDING_RE.test(String(a.p))) return { error: '첨부파일을 다시 올려 주세요.' };
+    files.push({ p: a.p, name: clipText(a.name, 120) || '첨부파일', size: Math.max(0, Math.min(Number(a.size) || 0, 10485760)) });
+  }
+  return { files };
+}
+
 // 본문 이미지·첨부파일을 1시간짜리 임시 주소로 바꿔 준다
 async function signFiles(rows) {
   const paths = [...new Set(rows.flatMap((r) => [
@@ -150,4 +181,4 @@ async function membershipOf(userId) {
   return m ? { id: m.customer_id, name: m.customers && m.customers.name } : null;
 }
 
-module.exports = { FILE_BUCKET, PRIORITIES, CATEGORIES, CAUSES, BILLINGS, MODES, CHANNELS, custStatus, priorityOf, respondBy, ipHash, nextPublicNo, codeOf, bodyText, FILE_TYPES, PENDING_RE, signFiles, newToken, customerByToken, membershipOf, SB_URL, SB_KEY, SB_ANON, TABLE, BUCKET, STATUSES, KINDS, URGENCIES, sbHeaders, readBody, getUser, signImages };
+module.exports = { cleanBody, cleanFiles, FILE_BUCKET, PRIORITIES, CATEGORIES, CAUSES, BILLINGS, MODES, CHANNELS, custStatus, priorityOf, respondBy, ipHash, nextPublicNo, codeOf, bodyText, FILE_TYPES, PENDING_RE, signFiles, newToken, customerByToken, membershipOf, SB_URL, SB_KEY, SB_ANON, TABLE, BUCKET, STATUSES, KINDS, URGENCIES, sbHeaders, readBody, getUser, signImages };

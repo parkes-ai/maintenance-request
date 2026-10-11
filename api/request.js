@@ -3,43 +3,13 @@
 // 이미지·첨부파일은 /api/upload 로 미리 올라가 있고, 여기서는 그 경로만 받아 확인한다.
 const {
   SB_URL, SB_KEY, TABLE, KINDS, URGENCIES, sbHeaders, readBody, getUser, customerByToken,
-  ipHash, nextPublicNo, codeOf, priorityOf, respondBy, bodyText, PENDING_RE,
+  ipHash, nextPublicNo, codeOf, priorityOf, respondBy, bodyText, cleanBody, cleanFiles,
 } = require('./_lib');
 
 const clip = (v, n) => String(v ?? '').trim().slice(0, n);
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^[0-9+\-() ]{0,20}$/;
-const MAX_TEXT = 50000;
 
-// 본문 확인: [{t:'text', v}, {t:'img', p}] — 이미지 5장, 글 50,000자까지
-function cleanBody(raw) {
-  if (!Array.isArray(raw)) return { error: '요청 내용을 입력하거나 이미지를 붙여넣어 주세요.' };
-  const body = [];
-  let chars = 0, imgs = 0;
-  for (const s of raw.slice(0, 400)) {
-    if (s && s.t === 'text' && typeof s.v === 'string' && s.v) {
-      chars += s.v.length;
-      const last = body[body.length - 1];
-      if (last && last.t === 'text') last.v += s.v; else body.push({ t: 'text', v: s.v });
-    } else if (s && s.t === 'img' && PENDING_RE.test(String(s.p)) && /\.(png|jpe?g)$/.test(s.p)) {
-      if (++imgs > 5) return { error: '본문 이미지는 5장까지 넣을 수 있어요.' };
-      body.push({ t: 'img', p: s.p });
-    }
-  }
-  if (chars > MAX_TEXT) return { error: '요청 내용이 너무 깁니다. 나누어 접수해 주세요.' };
-  if (!bodyText(body) && !imgs) return { error: '요청 내용을 입력하거나 이미지를 붙여넣어 주세요.' };
-  return { body, imgs };
-}
-function cleanFiles(raw) {
-  const list = Array.isArray(raw) ? raw : [];
-  if (list.length > 5) return { error: '첨부파일은 5개까지 올릴 수 있어요.' };
-  const files = [];
-  for (const a of list) {
-    if (!a || !PENDING_RE.test(String(a.p))) return { error: '첨부파일을 다시 올려 주세요.' };
-    files.push({ p: a.p, name: clip(a.name, 120) || '첨부파일', size: Math.max(0, Math.min(Number(a.size) || 0, 10485760)) });
-  }
-  return { files };
-}
 const countSince = async (filter, ms) => {
   const since = new Date(Date.now() - ms).toISOString();
   const r = await fetch(`${SB_URL}/rest/v1/${TABLE}?${filter}&created_at=gt.${encodeURIComponent(since)}&select=id`, { headers: { ...sbHeaders(), Prefer: 'count=exact', Range: '0-0' } });
@@ -71,13 +41,13 @@ module.exports = async (req, res) => {
   if (!KINDS.includes(row.kind)) return res.status(400).json({ error: '요청 종류를 골라 주세요.' });
   if (!URGENCIES.includes(row.urgency)) return res.status(400).json({ error: '급한 정도를 골라 주세요.' });
   if (!row.consent) return res.status(400).json({ error: '개인정보 수집 안내에 동의해 주세요.' });
-  const bd = cleanBody(b.body);
+  const bd = cleanBody(b.body, 50000);
   if (bd.error) return res.status(400).json({ error: bd.error });
   const fl = cleanFiles(b.attachments);
   if (fl.error) return res.status(400).json({ error: fl.error });
   row.body = bd.body;
   row.attachments = fl.files;
-  row.message = bodyText(bd.body).slice(0, MAX_TEXT) || `[이미지 ${bd.imgs}장]`;
+  row.message = bodyText(bd.body).slice(0, 50000) || `[이미지 ${bd.imgs}장]`;
 
   // 전용 링크면 그 고객사로 묶고 회사 이름도 등록된 이름으로. 링크가 없으면 '신규 문의'
   let cust = null;
