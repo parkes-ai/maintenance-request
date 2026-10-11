@@ -204,3 +204,15 @@ values ('request-files', 'request-files', false, 10485760, array[
   'application/x-hwp', 'application/vnd.hancom.hwp', 'application/vnd.hancom.hwpx', 'application/zip'
 ])
 on conflict (id) do nothing;
+
+-- v2.1: 고객사 코드 자동 체번 (C001, C002 …, 1000번부터는 C1000)
+create or replace function public.customers_auto_code() returns trigger
+language plpgsql set search_path = public as $$
+begin
+  new.code := 'C' || lpad(new.id::text, 3, '0');
+  return new;
+end $$;
+drop trigger if exists customers_auto_code on public.customers;
+create trigger customers_auto_code before insert on public.customers
+  for each row execute function public.customers_auto_code();
+update public.customers set code = 'C' || lpad(id::text, 3, '0') where code is null;

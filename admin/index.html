@@ -201,7 +201,7 @@
   @media (min-width: 640px) { .add-form .row3 { grid-template-columns: 1fr 1fr 1fr; } }
   /* 고객사·인력 정보 */
   .cust-add2, .staff-add { display: grid; gap: 8px; margin: 20px 0 16px; grid-template-columns: 1fr 1fr; align-items: end; }
-  @media (min-width: 720px) { .cust-add2 { grid-template-columns: 2fr 1fr 1.2fr 1fr auto; } .staff-add { grid-template-columns: 1.2fr 1.5fr 1fr 1.5fr auto; } }
+  @media (min-width: 720px) { .cust-add2 { grid-template-columns: 2fr 1.2fr 1fr auto; } .staff-add { grid-template-columns: 1.2fr 1.5fr 1fr 1.5fr auto; } }
   .cust-add2 label, .staff-add label, .info-form label { display: grid; gap: 4px; font-size: 13px; font-weight: 600; color: var(--muted); }
   .cust-add2 .btn, .staff-add .btn { min-height: 52px; padding: 0 18px; font-size: 15px; }
   .meta-line { color: var(--muted); font-size: 14px; margin: 0 0 6px; }
@@ -370,12 +370,11 @@
     <div id="view-cust" role="tabpanel" hidden>
       <form class="cust-add2" id="custAdd">
         <label>회사 이름<input type="text" id="custName" maxlength="100" required></label>
-        <label>코드 (영문·숫자)<input type="text" id="custCode" maxlength="8" placeholder="예: GANA" style="text-transform:uppercase"></label>
         <label>청구 방식<select id="custBilling"><option>무상</option><option>건당</option><option>시간당</option><option>월 정액</option><option>계약 범위 안</option></select></label>
         <label>월 정액 포함 시간<input type="number" id="custHours" min="0" step="0.5" placeholder="시간"></label>
         <button class="btn" type="submit">고객사 추가</button>
       </form>
-      <p class="hint" style="margin:-8px 0 16px">코드는 접수번호 앞자리가 돼요(예: GANA-2026-0001). 비워 두면 C001처럼 자동으로 붙어요. 추가하면 전용 링크가 생겨요.</p>
+      <p class="hint" style="margin:-8px 0 16px">추가하면 고객사 코드(C001, C002 …)가 자동으로 붙고 전용 링크가 생겨요. 코드는 접수번호 앞자리가 돼요(예: C001-2026-0001).</p>
       <div class="msg err" id="custErr" hidden></div>
       <div class="list" id="custList"></div>
     </div>

@@ -74,7 +74,7 @@ module.exports = async (req, res) => {
     // 고객사 정보 확인 (추가·수정 공통)
     const info = (src) => {
       const out = {};
-      if ('code' in src) { const code = clip(src.code, 8).toUpperCase(); if (code && !/^[A-Z0-9]{2,8}$/.test(code)) return { error: '고객사 코드는 영문 대문자·숫자 2~8자로 정해 주세요.' }; out.code = code || null; }
+      // 코드는 DB가 C001처럼 자동으로 붙이고 바꾸지 않는다 (docs/setup.sql v2.1)
       if ('billing' in src) { if (!BILLINGS.includes(src.billing)) return { error: '청구 방식을 골라 주세요.' }; out.billing = src.billing; }
       if ('monthly_hours' in src) { const h = src.monthly_hours === '' || src.monthly_hours === null ? null : Number(src.monthly_hours); if (h !== null && !(h >= 0 && h <= 1000)) return { error: '월 정액 포함 시간을 확인해 주세요.' }; out.monthly_hours = h; }
       if ('contact' in src) out.contact = clip(src.contact, 200) || null;
@@ -82,14 +82,12 @@ module.exports = async (req, res) => {
       if ('name' in src) { const n = clip(src.name, 100); if (!n) return { error: '회사 이름을 적어 주세요.' }; out.name = n; }
       return { out };
     };
-    const codeTaken = async (code, exceptId) => code && ((await json(await db(`customers?code=eq.${enc(code)}&select=id`))) || []).some((x) => x.id !== exceptId);
     if (req.method === 'POST') {
       // 고객사 추가. fromRequest가 있으면 '신규 문의'를 고객사로 등록하면서 같은 회사 이름의 신규 문의를 함께 묶는다
       const name = clip(b.name, 100);
       if (!name) return fail(400, '회사 이름을 적어 주세요.');
       const v = info({ ...b, name });
       if (v.error) return fail(400, v.error);
-      if (await codeTaken(v.out.code)) return fail(409, `이미 쓰고 있는 코드예요: ${v.out.code}`);
       const like = name.replace(/[\\%_*]/g, (ch) => '\\' + ch);
       let [cust] = (await json(await db(`customers?name=ilike.${enc(like)}&select=${FIELDS}`))) || [];
       const existed = !!cust;
@@ -122,7 +120,6 @@ module.exports = async (req, res) => {
       else if (b.info && typeof b.info === 'object') {
         const v = info(b.info);
         if (v.error) return fail(400, v.error);
-        if (await codeTaken(v.out.code, id)) return fail(409, `이미 쓰고 있는 코드예요: ${v.out.code}`);
         change = v.out;
       } else return fail(400, '잘못된 요청이에요.');
       const r = await db(`customers?id=eq.${id}&select=${FIELDS}`, { method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify(change) });

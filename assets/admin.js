@@ -700,7 +700,7 @@
       $('custList').innerHTML = customers.length ? customers.map((x) => `
         <article class="item cust${x.active ? '' : ' off'}">
           <h3><button type="button" data-cust="${x.id}" data-name="${esc(x.name)}" title="이 고객사의 요청만 보기">${esc(x.name)}</button>${x.active ? '' : '<span class="pill">사용 중지</span>'}</h3>
-          <p class="meta-line">코드 <b>${esc(x.code || 'C' + String(x.id).padStart(3, '0') + ' (자동)')}</b> · 청구 <b>${esc(x.billing)}</b>${x.billing === '월 정액' ? ` · 포함 ${x.monthly_hours ?? '-'}시간/월` : ''}${x.contact ? ` · 담당 ${esc(x.contact)}` : ''}</p>
+          <p class="meta-line">코드 <b>${esc(x.code || '')}</b> · 청구 <b>${esc(x.billing)}</b>${x.billing === '월 정액' ? ` · 포함 ${x.monthly_hours ?? '-'}시간/월` : ''}${x.contact ? ` · 담당 ${esc(x.contact)}` : ''}</p>
           ${x.scope_note ? `<p class="meta-line">계약 메모: ${esc(x.scope_note)}</p>` : ''}
           <p class="counts">요청 ${x.requests}건${x.open ? ` (진행 중 ${x.open})` : ''} · 연결된 회원 ${x.members}명</p>
           <div class="link"><code>${esc(linkOf(x.token))}</code><button type="button" data-copy-link="${esc(linkOf(x.token))}">링크 복사</button></div>
@@ -711,7 +711,6 @@
           </div>
           ${custOpen.has(x.id) ? `<form class="info-form" data-cform="${x.id}">
             <label>회사 이름<input name="name" maxlength="100" value="${esc(x.name)}"></label>
-            <label>코드<input name="code" maxlength="8" value="${esc(x.code || '')}" style="text-transform:uppercase" placeholder="영문·숫자 2~8자"></label>
             <label>청구 방식<select name="billing">${opt(BILLINGS, x.billing)}</select></label>
             <label>월 정액 포함 시간<input name="monthly_hours" type="number" min="0" step="0.5" value="${x.monthly_hours ?? ''}"></label>
             <label class="full">고객 측 담당자·연락처<input name="contact" maxlength="200" value="${esc(x.contact || '')}"></label>
@@ -727,10 +726,10 @@
     const name = $('custName').value.trim();
     if (!name) return;
     try {
-      const d = await api('POST', { name, code: $('custCode').value.trim(), billing: $('custBilling').value, monthly_hours: $('custHours').value }, '?view=customers');
-      ['custName', 'custCode', 'custHours'].forEach((id) => { $(id).value = ''; });
+      const d = await api('POST', { name, billing: $('custBilling').value, monthly_hours: $('custHours').value }, '?view=customers');
+      ['custName', 'custHours'].forEach((id) => { $(id).value = ''; });
       await drawCustomers(true);
-      toast(`${d.customer.name} 고객사를 추가했어요. 링크를 복사해 보내 주세요`);
+      toast(`${d.customer.name} 고객사를 추가했어요(코드 ${d.customer.code || '자동'}). 링크를 복사해 보내 주세요`);
     } catch (err) { showErr('custErr', err); }
   });
   $('custList').addEventListener('click', async (e) => {
@@ -761,7 +760,7 @@
     const id = Number(f.dataset.cform);
     const fd = new FormData(f);
     try {
-      await api('PATCH', { id, info: { name: fd.get('name'), code: fd.get('code'), billing: fd.get('billing'), monthly_hours: fd.get('monthly_hours'), contact: fd.get('contact'), scope_note: fd.get('scope_note') } }, '?view=customers');
+      await api('PATCH', { id, info: { name: fd.get('name'), billing: fd.get('billing'), monthly_hours: fd.get('monthly_hours'), contact: fd.get('contact'), scope_note: fd.get('scope_note') } }, '?view=customers');
       custOpen.delete(id);
       await drawCustomers(true);
       toast('고객사 정보를 저장했어요');
