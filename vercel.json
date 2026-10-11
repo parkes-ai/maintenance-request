@@ -29,7 +29,7 @@
   "rewrites": [
     {
       "source": "/r/:token",
-      "destination": "/index.html"
+      "destination": "/"
     }
   ]
 }
