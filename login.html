@@ -23,6 +23,7 @@
   <p class="mono kicker">Sign In</p>
   <h1 class="page-title" id="title">로그인</h1>
 
+  <p class="link-note" id="linkNote" hidden></p>
   <form class="card" id="loginForm" novalidate>
     <div class="field"><label for="email">이메일</label><input type="email" id="email" autocomplete="email" required></div>
     <div class="field"><label for="pw">비밀번호</label><input type="password" id="pw" autocomplete="current-password" required></div>
@@ -50,6 +51,17 @@
 (function () {
   const $ = (id) => document.getElementById(id);
   const say = (el, text, ok) => { el.textContent = text; el.className = 'msg ' + (ok ? 'ok' : 'err'); el.hidden = false; };
+  // 고객사 전용 링크에서 왔으면 기억해 두고 회사 이름을 보여 준다
+  const t = Auth.linkToken();
+  if (t) {
+    Auth.rememberJoin(t);
+    fetch('/api/customer?t=' + encodeURIComponent(t)).then((r) => r.ok ? r.json() : null).then((d) => {
+      if (!d) return;
+      const n = $('linkNote');
+      n.textContent = d.name + ' 담당자로 로그인해요. 회사 요청 내역과 처리 상태를 볼 수 있어요.';
+      n.hidden = false;
+    }).catch(() => {});
+  }
 
   // 비밀번호 다시 설정 메일 링크로 왔을 때
   const h = new URLSearchParams(location.hash.slice(1));
@@ -58,7 +70,9 @@
     $('loginForm').hidden = true; $('resetForm').hidden = false; $('title').textContent = '새 비밀번호';
     history.replaceState(null, '', '/login');
   } else if (Auth.session()) {
-    location.replace('/my');
+    // 이미 로그인한 사람이 전용 링크로 왔으면 회사에 연결한 뒤 이동
+    if (Auth.linkToken()) Auth.rememberJoin(Auth.linkToken());
+    Auth.join().catch(() => null).then(() => location.replace('/my'));
   }
 
   $('loginForm').addEventListener('submit', async (e) => {
@@ -73,6 +87,7 @@
         return say($('err'), notConfirmed ? '가입 확인 메일의 링크를 먼저 눌러 주세요.' : '이메일 또는 비밀번호가 맞지 않아요.');
       }
       Auth.save(r.data);
+      await Auth.join();
       location.href = '/my';
     } catch (err) { say($('err'), err.message || '잠시 뒤 다시 시도해 주세요.'); }
     finally { $('go').disabled = false; }

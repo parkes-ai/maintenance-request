@@ -9,12 +9,27 @@
           "value": "noindex, nofollow"
         }
       ]
+    },
+    {
+      "source": "/r/(.*)",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        }
+      ]
     }
   ],
   "crons": [
     {
       "path": "/api/cleanup",
       "schedule": "0 19 * * *"
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/r/:token",
+      "destination": "/index.html"
     }
   ]
 }

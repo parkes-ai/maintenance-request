@@ -40,6 +40,23 @@
       Auth.clear();
       location.href = '/';
     },
+    // 고객사 전용 링크 기억하기: 그 링크에서 가입·로그인하면 회원을 그 고객사에 연결한다
+    linkToken() {
+      const m = location.pathname.match(/^\/r\/([A-Za-z0-9]{8,32})\/?$/);
+      return m ? m[1] : new URLSearchParams(location.search).get('t');
+    },
+    rememberJoin(t) { try { if (t) localStorage.setItem('mr_join', t); } catch {} },
+    async join() {
+      let t = null;
+      try { t = localStorage.getItem('mr_join'); } catch {}
+      const s = Auth.session();
+      if (!t || !s) return null;
+      const r = await fetch('/api/join', { method: 'POST', headers: { Authorization: `Bearer ${s.access_token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ t }) }).catch(() => null);
+      if (!r) return null;
+      const d = await r.json().catch(() => ({}));
+      if (r.ok || r.status === 404) { try { localStorage.removeItem('mr_join'); } catch {} }
+      return r.ok ? d : null;
+    },
     // 머리말 메뉴: 로그인 상태에 따라 바뀐다
     nav() {
       const el = document.getElementById('nav');

@@ -50,3 +50,30 @@ revoke all on public.request_edits from anon, authenticated;
 -- 2026-10-11 추가: 마지막으로 변경 기록(request_edits)을 남긴 시각. 관리자 화면에서 [변경 기록 보기]를 보일지 정한다
 -- request_edits.changes 에는 내용 수정(company 등)과 상태 변경(status)이 함께 남는다
 alter table public.maintenance_requests add column if not exists last_logged_at timestamptz;
+
+-- 2026-10-11 추가: 고객사 전용 링크 · 등록 고객사/신규 문의 구분 · 회원의 회사 연결
+-- 고객사: 등록하면 전용 링크(token)가 생긴다. 링크로 들어온 요청은 그 고객사로 묶인다
+create table if not exists public.customers (
+  id bigint generated always as identity primary key,
+  created_at timestamptz not null default now(),
+  name text not null,
+  token text not null unique,
+  active boolean not null default true
+);
+create unique index if not exists customers_name_idx on public.customers (lower(name));
+alter table public.customers enable row level security;
+revoke all on public.customers from anon, authenticated;
+
+-- 요청 ↔ 고객사 (비어 있으면 '신규 문의')
+alter table public.maintenance_requests add column if not exists customer_id bigint references public.customers(id) on delete set null;
+create index if not exists maintenance_requests_customer_idx on public.maintenance_requests (customer_id);
+
+-- 회원 ↔ 고객사 (전용 링크에서 가입·로그인하면 연결된다. 그 회사 요청을 모두 볼 수 있다)
+create table if not exists public.customer_members (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  customer_id bigint not null references public.customers(id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+alter table public.customer_members enable row level security;
+revoke all on public.customer_members from anon, authenticated;
+-- 정책은 만들지 않는다: 서버(/api)만 접근

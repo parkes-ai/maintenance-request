@@ -1,6 +1,6 @@
 // 관리자: 비밀번호 확인 → 요청 목록(캡처 임시 주소 포함) / 상태·메모·내용 바꾸기 / 요청 삭제 / 회원 목록
 const crypto = require('node:crypto');
-const { SB_URL, SB_KEY, TABLE, BUCKET, STATUSES, KINDS, URGENCIES, sbHeaders, readBody, signImages } = require('./_lib');
+const { SB_URL, SB_KEY, TABLE, BUCKET, STATUSES, KINDS, URGENCIES, sbHeaders, readBody, signImages, newToken } = require('./_lib');
 
 const same = (a, b) => {
   const h = (s) => crypto.createHash('sha256').update(String(s)).digest();
@@ -23,6 +23,9 @@ module.exports = async (req, res) => {
     // 회원별 요청 수 (로그인하고 남긴 요청만 회원과 이어져 있다)
     const q = await fetch(`${SB_URL}/rest/v1/${TABLE}?select=user_id,status&user_id=not.is.null&limit=10000`, { headers: sbHeaders() });
     if (!q.ok) return res.status(500).json({ error: '회원별 요청 수를 세지 못했어요.' });
+    const cm = await fetch(`${SB_URL}/rest/v1/customer_members?select=user_id,customers(name)`, { headers: sbHeaders() });
+    const companyOf = {};
+    if (cm.ok) for (const x of await cm.json()) companyOf[x.user_id] = x.customers && x.customers.name;
     const count = {};
     for (const x of await q.json()) {
       const c = (count[x.user_id] ||= { total: 0, open: 0 });
@@ -32,10 +35,74 @@ module.exports = async (req, res) => {
     const members = (d.users || [])
       .map((u) => ({
         id: u.id, email: u.email, created_at: u.created_at, last_sign_in_at: u.last_sign_in_at || null, confirmed: Boolean(u.email_confirmed_at || u.confirmed_at),
-        requests: (count[u.id] || {}).total || 0, open: (count[u.id] || {}).open || 0,
+        requests: (count[u.id] || {}).total || 0, open: (count[u.id] || {}).open || 0, company: companyOf[u.id] || null,
       }))
       .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
     return res.status(200).json({ members });
+  }
+
+  // ───── 고객사 관리 ─────
+  if (req.query && req.query.view === 'customers') {
+    const enc = encodeURIComponent;
+    if (req.method === 'GET') {
+      const [c, q, m] = await Promise.all([
+        fetch(`${SB_URL}/rest/v1/customers?select=id,name,token,active,created_at&order=name.asc`, { headers: sbHeaders() }),
+        fetch(`${SB_URL}/rest/v1/${TABLE}?select=customer_id,status&customer_id=not.is.null&limit=10000`, { headers: sbHeaders() }),
+        fetch(`${SB_URL}/rest/v1/customer_members?select=customer_id`, { headers: sbHeaders() }),
+      ]);
+      if (!c.ok || !q.ok || !m.ok) return res.status(500).json({ error: '고객사 목록을 불러오지 못했어요.' });
+      const reqs = {}, open = {}, mem = {};
+      for (const x of await q.json()) { reqs[x.customer_id] = (reqs[x.customer_id] || 0) + 1; if (x.status !== '완료') open[x.customer_id] = (open[x.customer_id] || 0) + 1; }
+      for (const x of await m.json()) mem[x.customer_id] = (mem[x.customer_id] || 0) + 1;
+      const customers = (await c.json()).map((x) => ({ ...x, requests: reqs[x.id] || 0, open: open[x.id] || 0, members: mem[x.id] || 0 }));
+      return res.status(200).json({ customers });
+    }
+    const b = readBody(req);
+    if (req.method === 'POST') {
+      // 고객사 추가. fromRequest가 있으면 '신규 문의'를 고객사로 등록하면서 같은 회사 이름의 신규 문의를 함께 묶는다
+      const name = String(b.name ?? '').trim().slice(0, 100);
+      if (!name) return res.status(400).json({ error: '회사 이름을 적어 주세요.' });
+      const like = name.replace(/[\\%_*]/g, (ch) => '\\' + ch);
+      const f = await fetch(`${SB_URL}/rest/v1/customers?name=ilike.${enc(like)}&select=id,name,token`, { headers: sbHeaders() });
+      if (!f.ok) return res.status(500).json({ error: '고객사를 확인하지 못했어요.' });
+      let [cust] = await f.json();
+      const existed = !!cust;
+      if (!cust) {
+        const r = await fetch(`${SB_URL}/rest/v1/customers?select=id,name,token`, { method: 'POST', headers: { ...sbHeaders(), Prefer: 'return=representation' }, body: JSON.stringify({ name, token: newToken() }) });
+        if (!r.ok) return res.status(500).json({ error: '고객사를 만들지 못했어요.' });
+        [cust] = await r.json();
+      } else if (b.fromRequest === undefined) {
+        return res.status(409).json({ error: `이미 등록된 고객사예요: ${cust.name}` });
+      }
+      let linked = 0;
+      if (b.fromRequest !== undefined) {
+        const id = Number(b.fromRequest);
+        if (!Number.isInteger(id)) return res.status(400).json({ error: '잘못된 요청이에요.' });
+        const attach = (filter) => fetch(`${SB_URL}/rest/v1/${TABLE}?customer_id=is.null&${filter}&select=id`, {
+          method: 'PATCH', headers: { ...sbHeaders(), Prefer: 'return=representation' }, body: JSON.stringify({ customer_id: cust.id }),
+        });
+        const p1 = await attach(`id=eq.${id}`);
+        const p2 = await attach(`company=ilike.${enc(like)}`);
+        if (!p1.ok || !p2.ok) return res.status(500).json({ error: '고객사는 만들었지만 요청을 묶지 못했어요.' });
+        linked = (await p1.json()).length + (await p2.json()).length;
+      }
+      return res.status(200).json({ ok: true, customer: cust, existed, linked });
+    }
+    if (req.method === 'PATCH') {
+      // 링크 새로 만들기(예전 링크는 바로 못 씀) / 사용 중지·다시 사용
+      const id = Number(b.id);
+      if (!Number.isInteger(id)) return res.status(400).json({ error: '잘못된 요청이에요.' });
+      let change;
+      if (b.rotate === true) change = { token: newToken() };
+      else if (typeof b.active === 'boolean') change = { active: b.active };
+      else return res.status(400).json({ error: '잘못된 요청이에요.' });
+      const r = await fetch(`${SB_URL}/rest/v1/customers?id=eq.${id}&select=id,name,token,active`, { method: 'PATCH', headers: { ...sbHeaders(), Prefer: 'return=representation' }, body: JSON.stringify(change) });
+      if (!r.ok) return res.status(500).json({ error: '바꾸지 못했어요.' });
+      const [cust] = await r.json();
+      if (!cust) return res.status(404).json({ error: '없는 고객사예요.' });
+      return res.status(200).json({ ok: true, customer: cust });
+    }
+    return res.status(405).json({ error: '지원하지 않는 요청이에요.' });
   }
 
   // 여러 요청의 변경 기록 한 번에 (CSV 내려받기용, 최대 500건, 최근 것이 위)
@@ -58,7 +125,7 @@ module.exports = async (req, res) => {
   }
 
   if (req.method === 'GET') {
-    const r = await fetch(`${SB_URL}/rest/v1/${TABLE}?select=*&order=created_at.desc&limit=500`, { headers: sbHeaders() });
+    const r = await fetch(`${SB_URL}/rest/v1/${TABLE}?select=*,customers(name)&order=created_at.desc&limit=500`, { headers: sbHeaders() });
     if (!r.ok) return res.status(500).json({ error: '불러오지 못했어요.' });
     return res.status(200).json({ rows: await signImages(await r.json()) });
   }

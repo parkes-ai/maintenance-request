@@ -22,6 +22,7 @@
 <main class="wrap narrow">
   <p class="mono kicker">Create Account</p>
   <h1 class="page-title">회원가입</h1>
+  <p class="link-note" id="linkNote" hidden></p>
   <form class="card" id="form" novalidate>
     <p class="sub">가입하면 내가 남긴 요청의 처리 상태를 볼 수 있어요.</p>
     <div class="field"><label for="email">이메일</label><input type="email" id="email" autocomplete="email" required></div>
@@ -39,6 +40,17 @@
 (function () {
   const $ = (id) => document.getElementById(id);
   const say = (text, ok) => { const m = $('msg'); m.textContent = text; m.className = 'msg ' + (ok ? 'ok' : 'err'); m.hidden = false; };
+  // 고객사 전용 링크에서 왔으면 기억해 두고 회사 이름을 보여 준다
+  const t = Auth.linkToken();
+  if (t) {
+    Auth.rememberJoin(t);
+    fetch('/api/customer?t=' + encodeURIComponent(t)).then((r) => r.ok ? r.json() : null).then((d) => {
+      if (!d) return;
+      const n = $('linkNote');
+      n.textContent = d.name + ' 담당자로 가입해요. 회사 요청 내역과 처리 상태를 볼 수 있어요.';
+      n.hidden = false;
+    }).catch(() => {});
+  }
   $('form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const email = $('email').value.trim(), password = $('pw').value;
@@ -58,10 +70,10 @@
         if (/password/i.test(t)) return say('비밀번호가 너무 쉬워요. 더 길게 정해 주세요.');
         return say('가입하지 못했어요. 이메일 주소를 확인해 주세요.');
       }
-      if (r.data.access_token) { Auth.save(r.data); location.href = '/my'; return; }
+      if (r.data.access_token) { Auth.save(r.data); await Auth.join(); location.href = '/my'; return; }
       sent = true;
       $('form').querySelectorAll('input, button').forEach((el) => { el.disabled = true; });
-      say('확인 메일을 보냈어요. 메일의 링크를 누른 뒤 로그인해 주세요.', true);
+      say('확인 메일을 보냈어요. 메일의 링크를 누른 뒤 로그인해 주세요. 회사 연결은 처음 로그인할 때 자동으로 돼요.', true);
     } catch (err) { say(err.message || '잠시 뒤 다시 시도해 주세요.'); }
     finally { if (!sent) $('go').disabled = false; }
   });

@@ -49,4 +49,26 @@ async function signImages(rows) {
   return rows.map((row) => ({ ...row, images: (row.images || []).map((p) => map[p]).filter(Boolean) }));
 }
 
-module.exports = { SB_URL, SB_KEY, SB_ANON, TABLE, BUCKET, STATUSES, KINDS, URGENCIES, sbHeaders, readBody, getUser, signImages };
+// 고객사 전용 링크 토큰 (영문·숫자 12자, 짐작할 수 없게 무작위)
+const TOKEN_RE = /^[A-Za-z0-9]{8,32}$/;
+function newToken() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+  return [...require('node:crypto').randomBytes(12)].map((b) => chars[b % chars.length]).join('');
+}
+// 쓰고 있는 고객사만 돌려준다 (사용 중지했거나 없으면 null)
+async function customerByToken(token) {
+  if (!TOKEN_RE.test(String(token || ''))) return null;
+  const r = await fetch(`${SB_URL}/rest/v1/customers?token=eq.${token}&active=is.true&select=id,name`, { headers: sbHeaders() });
+  if (!r.ok) return null;
+  const [c] = await r.json();
+  return c || null;
+}
+// 회원이 연결된 고객사 (없으면 null)
+async function membershipOf(userId) {
+  const r = await fetch(`${SB_URL}/rest/v1/customer_members?user_id=eq.${encodeURIComponent(userId)}&select=customer_id,customers(name)`, { headers: sbHeaders() });
+  if (!r.ok) return null;
+  const [m] = await r.json();
+  return m ? { id: m.customer_id, name: m.customers && m.customers.name } : null;
+}
+
+module.exports = { newToken, customerByToken, membershipOf, SB_URL, SB_KEY, SB_ANON, TABLE, BUCKET, STATUSES, KINDS, URGENCIES, sbHeaders, readBody, getUser, signImages };

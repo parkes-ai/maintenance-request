@@ -72,14 +72,19 @@
     } catch (x) { err.textContent = x.message; err.hidden = false; btn.disabled = false; }
   });
 
-  fetch('/api/my-requests', { headers: { Authorization: `Bearer ${s.access_token}` } })
+  Auth.join().catch(() => null)
+    .then(() => fetch('/api/my-requests', { headers: { Authorization: `Bearer ${s.access_token}` } }))
     .then(async (r) => {
       const d = await r.json().catch(() => ({}));
       if (r.status === 401) { Auth.clear(); location.replace('/login'); return; }
       if (!r.ok) throw new Error(d.error || '불러오지 못했어요.');
-      $('who').textContent = d.email ? `${d.email} 계정으로 로그인했어요.` : '';
+      $('who').textContent = d.company
+        ? `${d.email} 계정 · ${d.company} 담당자예요. 회사 요청을 모두 보여 드려요.`
+        : (d.email ? `${d.email} 계정으로 로그인했어요.` : '');
       if (!d.rows.length) {
-        $('list').innerHTML = '<div class="empty">아직 남긴 요청이 없어요.<br>로그인한 뒤 남긴 요청만 여기에 보여요.</div>';
+        $('list').innerHTML = d.company
+          ? '<div class="empty">아직 회사 요청이 없어요.</div>'
+          : '<div class="empty">아직 남긴 요청이 없어요.<br>받으신 회사 전용 링크에서 로그인하면 회사 요청을 모두 볼 수 있어요.</div>';
         return;
       }
       $('list').innerHTML = d.rows.map((row) => `

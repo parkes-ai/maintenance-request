@@ -22,7 +22,7 @@
 <main>
   <section class="wrap hero">
     <div>
-      <p class="mono rise" style="--i:0">Request Desk</p>
+      <p class="mono rise" style="--i:0" id="kicker">Request Desk</p>
       <h1><span class="rise" style="--i:1">프로그램에</span><span class="rise" style="--i:2">문제가 생겼나요?</span></h1>
       <p class="lede rise" style="--i:3">화면을 찍어 남겨 주시면 확인 후 연락드릴게요.</p>
       <div class="actions rise" style="--i:4">
@@ -49,7 +49,8 @@
     <aside>
       <p class="mono">Request Form</p>
       <h2>요청 남기기</h2>
-      <p id="loginHint">로그인하고 남기면 처리 상태를 <a href="/my">내 요청 내역</a>에서 볼 수 있어요.</p>
+      <p class="link-note" id="linkNote" hidden></p>
+      <p id="loginHint">처음 문의하시나요? 회사 이름을 적어 남겨 주시면 확인 후 연락드려요. 거래 중인 고객사는 받으신 전용 링크로 들어오면 회사가 자동으로 입력돼요.</p>
       <p>화면 캡처가 있으면 훨씬 빨리 확인할 수 있어요.</p>
     </aside>
 
@@ -59,6 +60,7 @@
         <div class="field">
           <label for="company">회사 이름 <span class="req">*</span></label>
           <input type="text" id="company" name="company" maxlength="100" autocomplete="organization" required>
+          <p class="hint" id="companyHint" hidden>전용 링크로 들어와서 자동으로 입력됐어요.</p>
         </div>
         <div class="field">
           <label for="name">이름 <span class="req">*</span></label>
@@ -158,7 +160,34 @@
 
   // 로그인 상태면 안내 문구를 바꾼다
   const sess = Auth.session();
-  if (sess) $('loginHint').innerHTML = '로그인되어 있어요. 이 요청은 <a href="/my">내 요청 내역</a>에서 처리 상태를 볼 수 있어요.';
+  const esc = (s) => String(s).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+
+  // 고객사 전용 링크(/r/코드)로 들어왔는지 확인한다
+  const token = Auth.linkToken();
+  let linkOk = false;
+  if (token) {
+    Auth.rememberJoin(token);
+    fetch('/api/customer?t=' + encodeURIComponent(token)).then(async (r) => {
+      const d = await r.json().catch(() => ({}));
+      const note = $('linkNote');
+      if (!r.ok) {
+        note.textContent = d.error || '링크가 맞지 않아요. 받으신 링크를 확인하거나 전화 주세요.';
+        note.classList.add('bad'); note.hidden = false;
+        return;
+      }
+      linkOk = true;
+      $('kicker').textContent = d.name;
+      $('company').value = d.name; $('company').readOnly = true; $('companyHint').hidden = false;
+      note.innerHTML = `<b>${esc(d.name)}</b> 전용 접수 페이지예요.`; note.hidden = false;
+      const q = encodeURIComponent(token);
+      $('loginHint').innerHTML = sess
+        ? '로그인되어 있어요. 회사 요청 내역은 <a href="/my">내 요청 내역</a>에서 볼 수 있어요.'
+        : `요청은 로그인 없이 남길 수 있어요. 회사 요청 내역과 처리 상태를 보려면 <a href="/signup?t=${q}">이 링크에서 회원가입</a>하거나 <a href="/login?t=${q}">로그인</a>해 주세요.`;
+      if (sess) Auth.join();
+    }).catch(() => {});
+  } else if (sess) {
+    $('loginHint').innerHTML = '로그인되어 있어요. 이 요청은 <a href="/my">내 요청 내역</a>에서 처리 상태를 볼 수 있어요.';
+  }
 
   form.urgency.forEach((r) => r.addEventListener('change', () => {
     $('stopHint').hidden = form.urgency.value !== '업무 중단 중';
@@ -228,6 +257,7 @@
     const v = {
       company: form.company.value, name: $('name').value, contact: form.contact.value,
       program: form.program.value, kind: form.kind.value, urgency: form.urgency.value,
+      t: linkOk ? token : undefined,
       message: form.message.value, website: form.website.value,
       consent: $('consent').checked,
       images: shots.map((s) => s.data),

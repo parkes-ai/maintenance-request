@@ -1,6 +1,6 @@
 // 유지보수 요청 받기: 글은 표에, 화면 캡처는 비공개 저장소에 저장한다.
 const crypto = require('node:crypto');
-const { SB_URL, SB_KEY, TABLE, BUCKET, KINDS, URGENCIES, sbHeaders, readBody, getUser } = require('./_lib');
+const { SB_URL, SB_KEY, TABLE, BUCKET, KINDS, URGENCIES, sbHeaders, readBody, getUser, customerByToken } = require('./_lib');
 
 const clip = (v, n) => String(v ?? '').trim().slice(0, n);
 const MAX_IMAGES = 3;
@@ -29,7 +29,7 @@ module.exports = async (req, res) => {
     message: clip(b.message, 3000),
     consent: b.consent === true,
   };
-  if (!row.company || !row.name || !row.contact) return res.status(400).json({ error: '회사 이름, 이름, 연락처를 적어 주세요' });
+  if ((!row.company && !b.t) || !row.name || !row.contact) return res.status(400).json({ error: '회사 이름, 이름, 연락처를 적어 주세요' });
   if (!row.program) return res.status(400).json({ error: '어느 프로그램인지 골라 주세요' });
   if (!KINDS.includes(row.kind)) return res.status(400).json({ error: '요청 종류를 골라 주세요' });
   if (!URGENCIES.includes(row.urgency)) return res.status(400).json({ error: '급한 정도를 골라 주세요' });
@@ -48,6 +48,14 @@ module.exports = async (req, res) => {
 
   const user = await getUser(req);
   if (user) row.user_id = user.id;
+
+  // 전용 링크로 왔으면 그 고객사로 묶고 회사 이름도 등록된 이름으로 맞춘다. 링크가 없으면 '신규 문의'
+  if (b.t) {
+    const c = await customerByToken(b.t);
+    if (!c) return res.status(400).json({ error: '링크가 맞지 않거나 더 이상 쓰지 않는 링크예요. 받으신 링크를 확인하거나 전화 주세요.' });
+    row.customer_id = c.id;
+    row.company = c.name;
+  }
 
   // 캡처 먼저 저장
   const month = new Date().toISOString().slice(0, 7);

@@ -96,6 +96,7 @@
   .hist-row .to { white-space: pre-wrap; word-break: break-all; }
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   .del-row .edit-btn { margin-right: auto; }
+  .del-row .reg-btn { color: var(--accent); }
   .del-row .edit-btn:hover, .del-row .edit-btn:focus-visible { color: var(--accent); }
   .edited { color: var(--amber); font-weight: 600; }
   .edit { display: grid; gap: 10px; margin: 4px 0 12px; padding: 12px; background: var(--bg); }
@@ -122,6 +123,17 @@
   .reqs { flex: none; color: var(--muted); font-size: 14px; white-space: nowrap; }
   .reqs b { font: 400 18px/1 var(--head); color: var(--ink); font-variant-numeric: tabular-nums; }
   .reqs small { font-size: 13px; color: var(--amber); }
+  .cust-add { display: flex; gap: 8px; margin: 20px 0 16px; }
+  .cust-add input { flex: 1; min-width: 0; }
+  .cust-add .btn { min-height: 52px; padding: 0 20px; font-size: 15px; flex: none; }
+  .cust h3 { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .cust h3 button { font: inherit; background: none; border: 0; padding: 0; cursor: pointer; color: var(--ink); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px; text-align: left; }
+  .cust .link { display: flex; gap: 8px; align-items: stretch; margin: 10px 0; }
+  .cust .link code { flex: 1; min-width: 0; overflow-wrap: anywhere; font-family: var(--mono); font-size: 13px; padding: 10px 12px; border: 1px solid var(--line); background: #fff; }
+  .cust .link button, .cust-actions button { flex: none; min-height: 40px; padding: 0 12px; border: 1px solid var(--line-strong); background: var(--card); font: inherit; font-size: 14px; cursor: pointer; color: var(--ink); }
+  .cust .counts { color: var(--muted); font-size: 14px; margin: 0 0 10px; }
+  .cust-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .cust.off { opacity: .6; }
   .bar { display: flex; justify-content: space-between; align-items: center; }
 </style>
 </head>
@@ -144,9 +156,10 @@
     <div class="tabs" role="tablist" aria-label="보기">
       <button type="button" role="tab" id="tabReq" aria-selected="true" aria-controls="reqView">요청함</button>
       <button type="button" role="tab" id="tabMem" aria-selected="false" aria-controls="memView">회원</button>
+      <button type="button" role="tab" id="tabCust" aria-selected="false" aria-controls="custView">고객사</button>
     </div>
     <div id="reqView" role="tabpanel" aria-labelledby="tabReq">
-    <div class="user-bar" id="userBar" hidden><span><b id="userEmail"></b> 회원의 요청만 보는 중</span><button type="button" id="userClear">모든 요청 보기</button></div>
+    <div class="user-bar" id="userBar" hidden><span><b id="userEmail"></b><span id="userWhat"> 회원의 요청만 보는 중</span></span><button type="button" id="userClear">모든 요청 보기</button></div>
     <button type="button" class="late-bar" id="late" hidden><span>48시간 넘게 기다린 새 요청 <b id="lateN">0</b>건</span><span id="lateGo">모아 보기</span></button>
     <div class="sum" id="fStatus">
       <button type="button" data-v="새 요청" style="--c:var(--accent)"><b data-n="새 요청">0</b>새 요청</button>
@@ -163,6 +176,12 @@
     <div class="search">
       <input type="search" id="q" placeholder="검색: 회사·이름·연락처·내용·메모, #접수번호" aria-label="요청 검색" autocomplete="off">
       <p class="hint" id="qInfo" aria-live="polite"></p>
+    </div>
+    <div class="filters hist-kinds" id="fCust" role="group" aria-label="요청 구분">
+      <span>구분</span>
+      <button type="button" data-v="" class="on">전체</button>
+      <button type="button" data-v="reg">고객사</button>
+      <button type="button" data-v="new">신규 문의</button>
     </div>
     <div class="filters" id="fUrg" style="margin-bottom:16px">
       <button type="button" data-v="" class="on">급한 정도 전체</button>
@@ -184,6 +203,16 @@
     </div>
     <div class="msg err" id="err" hidden></div>
     <div class="list" id="list"></div>
+    </div>
+
+    <div id="custView" role="tabpanel" aria-labelledby="tabCust" hidden>
+      <form class="cust-add" id="custAdd">
+        <input type="text" id="custName" maxlength="100" placeholder="회사 이름" aria-label="새 고객사 이름" required>
+        <button class="btn" type="submit">고객사 추가</button>
+      </form>
+      <p class="hint" style="margin:-8px 0 16px">고객사를 추가하면 전용 링크가 만들어져요. 그 링크를 카톡이나 문자로 보내 주세요.</p>
+      <div class="msg err" id="custErr" hidden></div>
+      <div class="list" id="custList"></div>
     </div>
 
     <div id="memView" role="tabpanel" aria-labelledby="tabMem" hidden>
@@ -216,7 +245,7 @@
   const setPw = (v) => { try { v ? sessionStorage.setItem(KEY, v) : sessionStorage.removeItem(KEY); } catch {} };
   let rows = [];
   let memPw = getPw();
-  const filter = { status: '', urgency: '', late: false, user: '', userEmail: '', q: '' };
+  const filter = { status: '', urgency: '', late: false, user: '', userEmail: '', q: '', cust: '', custId: null, custName: '' };
   // 여러 개 삭제용 선택: 화면에 보이는 요청만 선택된 채로 남는다 (안 보이는 요청이 지워지는 일을 막기 위해)
   const picked = new Set();
   function drawPicked() {
@@ -331,8 +360,8 @@
   };
   $('csv').onclick = () => {
     if (!shown.length) return toast('내려받을 요청이 없어요');
-    const head = ['접수 번호', '접수 일시', '회사', '이름', '연락처', '프로그램', '요청 종류', '급한 정도', '내용', '상태', '완료 일시', '회원', '캡처 수', '메모'];
-    saveCsv('requests', head, shown.map((r) => [r.id, stamp(r.created_at), r.company, r.name, r.contact, r.program, r.kind, r.urgency, r.message, r.status, stamp(r.completed_at), r.user_id ? '예' : '', (r.images || []).length, r.memo]));
+    const head = ['접수 번호', '접수 일시', '회사', '이름', '연락처', '프로그램', '요청 종류', '급한 정도', '내용', '상태', '완료 일시', '회원', '캡처 수', '메모', '구분'];
+    saveCsv('requests', head, shown.map((r) => [r.id, stamp(r.created_at), r.company, r.name, r.contact, r.program, r.kind, r.urgency, r.message, r.status, stamp(r.completed_at), r.user_id ? '예' : '', (r.images || []).length, r.memo, r.customer_id ? '고객사' : '신규 문의']));
     toast(`${shown.length}건을 내려받았어요`);
   };
   // 변경 기록 CSV: 화면에 보이는 요청들의 기록, 바뀐 칸 하나가 한 줄
@@ -369,9 +398,12 @@
       const v = f.elements[0].value;
       if (r && v !== (r.memo ?? '')) drafts[r.id] = v;
     });
-    $('userBar').hidden = !filter.user;
-    $('userEmail').textContent = filter.userEmail;
-    const list = shown = rows.filter((r) => matches(r) && (!filter.user || r.user_id === filter.user) &&(!filter.late || isLate(r)) && (!filter.status || r.status === filter.status) && (!filter.urgency || r.urgency === filter.urgency));
+    $('userBar').hidden = !filter.user && !filter.custId;
+    $('userEmail').textContent = filter.custId ? filter.custName : filter.userEmail;
+    $('userWhat').textContent = filter.custId ? ' 고객사의 요청만 보는 중' : ' 회원의 요청만 보는 중';
+    const list = shown = rows.filter((r) => matches(r) && (!filter.user || r.user_id === filter.user)
+      && (!filter.custId || r.customer_id === filter.custId)
+      && (!filter.cust || (filter.cust === 'reg' ? !!r.customer_id : !r.customer_id)) &&(!filter.late || isLate(r)) && (!filter.status || r.status === filter.status) && (!filter.urgency || r.urgency === filter.urgency));
     drawPicked();
     if (!list.length) {
       const onlyUser = filter.user && !filter.status && !filter.urgency && !filter.late && !filter.q.trim();
@@ -388,13 +420,14 @@
           <span>#${r.id}</span><span>${date(r.created_at)}</span>
           ${isLate(r) ? `<span class="wait">${waited(r.created_at)}</span>` : ""}
           ${r.urgency !== '보통' ? `<span class="pill ${r.urgency === '업무 중단 중' ? 'stop' : 'hurry'}">${esc(r.urgency)}</span>` : ''}
+          ${r.customer_id ? '<span class="pill new">고객사</span>' : '<span class="pill doing">신규 문의</span>'}
           <span class="pill">${esc(r.kind)}</span>
           ${r.user_id ? '<span class="pill">회원</span>' : ''}
           ${r.status === '완료' && r.completed_at ? `<span>${delDate(r.completed_at)} 자동 삭제 예정</span>` : ''}
           ${r.edited_at ? `<span class="edited" title="${esc(new Date(r.edited_at).toLocaleString('ko-KR'))}">관리자 수정 ${date(r.edited_at)}</span>` : ''}
         </div>
         ${editing.id === r.id ? editForm(r) : `
-        <h3>${esc(r.company)} · ${esc(r.program)}</h3>
+        <h3>${esc((r.customers && r.customers.name) || r.company)} · ${esc(r.program)}</h3>
         <p class="who">${esc(r.name)} · <button type="button" class="copy" data-copy="${esc(r.contact)}">${esc(r.contact)}</button></p>
         <p class="text">${esc(r.message)}</p>`}
         ${r.images.length ? `<div class="shots">${r.images.map((u, i) => `<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" alt="캡처 ${i + 1}" loading="lazy"></a>`).join('')}</div>` : ''}
@@ -404,7 +437,7 @@
         </form>
         <div class="states">${STATUSES.map((s) => `<button type="button" data-id="${r.id}" data-s="${s}" class="${r.status === s ? 'on' : ''}">${s}</button>`).join('')}</div>
         ${r.last_logged_at || r.edited_at ? `<details class="hist" data-hist="${r.id}"${histOpen.has(r.id) ? ' open' : ''}><summary>변경 기록 보기</summary><div class="hist-body">${histCache[r.id] ? histHtml(histCache[r.id]) : '불러오는 중…'}</div></details>` : ''}
-        <div class="del-row">${editing.id === r.id ? '' : `<button type="button" class="del edit-btn" data-edit="${r.id}">수정</button>`}<button type="button" class="del" data-del="${r.id}">요청 삭제</button></div>
+        <div class="del-row">${editing.id === r.id ? '' : `<button type="button" class="del edit-btn" data-edit="${r.id}">수정</button>`}${r.customer_id ? '' : `<button type="button" class="del reg-btn" data-reg="${r.id}">고객사로 등록</button>`}<button type="button" class="del" data-del="${r.id}">요청 삭제</button></div>
       </article>`).join('');
     histOpen.forEach((id) => loadHist(id));
   }
@@ -649,6 +682,7 @@
         ? members.map((m) => `
           <article class="item member">
             <div class="mem-top"><button type="button" class="email" data-uid="${esc(m.id)}" data-email="${esc(m.email)}" title="이 회원의 요청만 보기">${esc(m.email)}</button><span class="reqs">${m.requests ? `요청 <b>${m.requests}</b>건${m.open ? ` <small>(진행 중 ${m.open})</small>` : ''}` : '요청 없음'}</span></div>
+            ${m.company ? `<span class="when">회사 <b style="color:var(--ink)">${esc(m.company)}</b></span>` : '<span class="when">회사 연결 안 됨</span>'}
             <span class="when">가입 ${day(m.created_at)}${m.confirmed ? '' : ' · 메일 확인 전'}</span>
             <span class="when">마지막 로그인 ${m.last_sign_in_at ? day(m.last_sign_in_at) : '없음'}</span>
           </article>`).join('')
@@ -661,10 +695,13 @@
     tab = t;
     $('tabReq').setAttribute('aria-selected', t === 'req');
     $('tabMem').setAttribute('aria-selected', t === 'mem');
+    $('tabCust').setAttribute('aria-selected', t === 'cust');
     $('reqView').hidden = t !== 'req';
     $('memView').hidden = t !== 'mem';
+    $('custView').hidden = t !== 'cust';
     drawPicked();
     if (t === 'mem') loadMembers();
+    if (t === 'cust') loadCustomers();
   }
   // 회원 이메일을 누르면 요청함에서 그 회원의 요청만
   $('memList').addEventListener('click', (e) => {
@@ -678,12 +715,106 @@
     clearTimeout(qTimer);
     qTimer = setTimeout(() => { filter.q = $('q').value; draw(); }, 150);
   });
-  $('userClear').onclick =() => { filter.user = ''; filter.userEmail = ''; draw(); };
+  $('userClear').onclick = () => { filter.user = ''; filter.userEmail = ''; filter.custId = null; filter.custName = ''; draw(); };
+
+  // 구분 필터
+  $('fCust').addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    filter.cust = b.dataset.v;
+    $('fCust').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
+    draw();
+  });
+
+  // 신규 문의 → 고객사로 등록 (같은 회사 이름의 신규 문의도 함께 묶인다)
+  $('list').addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-reg]'); if (!b) return;
+    const r = rows.find((x) => x.id === Number(b.dataset.reg));
+    const name = prompt('고객사로 등록할 회사 이름을 확인해 주세요. 전용 링크가 만들어지고, 같은 이름으로 들어온 신규 문의도 함께 묶여요.', r.company);
+    if (name === null) return;
+    if (!name.trim()) return toast('회사 이름을 적어 주세요');
+    b.disabled = true;
+    try {
+      const d = await api('POST', { name: name.trim(), fromRequest: r.id }, '?view=customers');
+      await load();
+      toast(`${d.customer.name} 고객사${d.existed ? '에 묶었어요' : '를 만들었어요'} · 요청 ${d.linked}건`);
+    } catch (err) {
+      b.disabled = false;
+      if (err.message !== 'locked') { $('err').textContent = err.message; $('err').hidden = false; }
+    }
+  });
+
+  // 고객사 탭
+  const linkOf = (t) => `${location.origin}/r/${t}`;
+  async function loadCustomers() {
+    $('custErr').hidden = true;
+    try {
+      const { customers } = await api('GET', null, '?view=customers');
+      $('custList').innerHTML = customers.length ? customers.map((x) => `
+        <article class="item cust${x.active ? '' : ' off'}">
+          <h3><button type="button" data-cust="${x.id}" data-name="${esc(x.name)}" title="이 고객사의 요청만 보기">${esc(x.name)}</button>${x.active ? '' : '<span class="pill">사용 중지</span>'}</h3>
+          <p class="counts">요청 ${x.requests}건${x.open ? ` (진행 중 ${x.open})` : ''} · 연결된 회원 ${x.members}명</p>
+          <div class="link"><code>${esc(linkOf(x.token))}</code><button type="button" data-copy-link="${esc(linkOf(x.token))}">링크 복사</button></div>
+          <div class="cust-actions">
+            <button type="button" data-rotate="${x.id}">링크 새로 만들기</button>
+            <button type="button" data-active="${x.id}" data-on="${x.active ? 0 : 1}">${x.active ? '사용 중지' : '다시 사용'}</button>
+          </div>
+        </article>`).join('') : '<div class="empty">아직 등록한 고객사가 없어요. 위에서 회사 이름을 적어 추가해 주세요.</div>';
+    } catch (err) {
+      if (err.message !== 'locked') { $('custErr').textContent = err.message; $('custErr').hidden = false; }
+    }
+  }
+  $('custAdd').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = $('custName').value.trim();
+    if (!name) return;
+    try {
+      const d = await api('POST', { name }, '?view=customers');
+      $('custName').value = '';
+      await loadCustomers();
+      toast(`${d.customer.name} 고객사를 추가했어요. 링크를 복사해 보내 주세요`);
+    } catch (err) {
+      if (err.message !== 'locked') { $('custErr').textContent = err.message; $('custErr').hidden = false; }
+    }
+  });
+  $('custList').addEventListener('click', async (e) => {
+    const copy = e.target.closest('[data-copy-link]');
+    if (copy) {
+      try { await navigator.clipboard.writeText(copy.dataset.copyLink); toast('링크를 복사했어요'); }
+      catch { const code = copy.previousElementSibling; const rg = document.createRange(); rg.selectNodeContents(code); getSelection().removeAllRanges(); getSelection().addRange(rg); }
+      return;
+    }
+    const show = e.target.closest('[data-cust]');
+    if (show) {
+      filter.custId = Number(show.dataset.cust); filter.custName = show.dataset.name; filter.user = ''; filter.userEmail = '';
+      showTab('req'); draw(); scrollTo(0, 0);
+      return;
+    }
+    const rot = e.target.closest('[data-rotate]');
+    const act = e.target.closest('[data-active]');
+    if (!rot && !act) return;
+    let body;
+    if (rot) {
+      if (!confirm('링크를 새로 만들까요? 예전 링크는 바로 쓸 수 없게 돼요. 새 링크를 고객사에 다시 보내 주세요.')) return;
+      body = { id: Number(rot.dataset.rotate), rotate: true };
+    } else {
+      const on = act.dataset.on === '1';
+      if (!on && !confirm('이 고객사의 링크를 사용 중지할까요? 그 링크로는 요청을 남길 수 없게 돼요.')) return;
+      body = { id: Number(act.dataset.active), active: on };
+    }
+    try {
+      await api('PATCH', body, '?view=customers');
+      await loadCustomers();
+      toast(rot ? '새 링크를 만들었어요. 복사해서 보내 주세요' : body.active ? '다시 쓸 수 있게 했어요' : '사용 중지했어요');
+    } catch (err) {
+      if (err.message !== 'locked') { $('custErr').textContent = err.message; $('custErr').hidden = false; }
+    }
+  });
 
   $('tabReq').onclick = () => showTab('req');
+  $('tabCust').onclick = () => showTab('cust');
   $('tabMem').onclick = () => showTab('mem');
 
-  $('reload').onclick = () => (tab === 'mem' ? loadMembers() : load());
+  $('reload').onclick = () => (tab === 'mem' ? loadMembers() : tab === 'cust' ? loadCustomers() : load());
   $('out').onclick = () => lock();
 
   if (memPw) load(); else $('pw').focus();
