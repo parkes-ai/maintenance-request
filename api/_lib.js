@@ -6,10 +6,89 @@ const SB_ANON = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABAS
   || process.env.SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
 const TABLE = 'maintenance_requests';
-const BUCKET = 'request-images';
-const STATUSES = ['새 요청', '처리 중', '완료'];
+const BUCKET = 'request-images'; // 예전 방식(요청 화면 캡처)
+const FILE_BUCKET = 'request-files'; // 본문 이미지와 첨부파일
+const STATUSES = ['새 요청', '배정', '처리 중', '완료', '보류'];
 const KINDS = ['오류', '수정 요청', '사용 문의'];
 const URGENCIES = ['보통', '급함', '업무 중단 중'];
+const PRIORITIES = ['긴급', '보통', '낮음'];
+const CATEGORIES = ['장애', '서비스 요청', '변경 요청'];
+const CAUSES = ['우리 결함', '사용 문의·교육', '추가 요청', '고객 환경'];
+const BILLINGS = ['무상', '건당', '시간당', '월 정액', '계약 범위 안'];
+const MODES = ['원격', '방문', '개발', '전화·메일'];
+const CHANNELS = ['웹', '유선', '이메일', '기타'];
+
+// 고객에게 보여 주는 상태 이름 (내부 5가지 → 고객 4가지)
+const custStatus = (s) => ({ '새 요청': '접수됨', '배정': '접수됨', '처리 중': '처리 중', '보류': '확인 필요', '완료': '완료' }[s] || s);
+// 급한 정도에서 우선순위 기본값
+const priorityOf = (urgency) => (urgency === '보통' ? '보통' : '긴급');
+
+// 응답 목표 시각: 평일 09–18시(한국 시간)만 센다. 긴급 2시간 · 보통 9시간 · 낮음 27시간
+function respondBy(from, priority) {
+  const H = { 긴급: 2, 보통: 9, 낮음: 27 }[priority] || 9;
+  const KST = 9 * 3600000;
+  let t = new Date(new Date(from).getTime() + KST); // 한국 시간을 UTC 칸에 담아 계산
+  let left = H * 60;
+  const at = (d, h) => { const x = new Date(d); x.setUTCHours(h, 0, 0, 0); return x; };
+  const nextDay9 = (d) => { const x = at(d, 9); x.setUTCDate(x.getUTCDate() + 1); return x; };
+  for (let guard = 0; guard < 400 && left > 0; guard++) {
+    const wd = t.getUTCDay();
+    if (wd === 0 || wd === 6) { t = nextDay9(t); continue; }
+    if (t < at(t, 9)) t = at(t, 9);
+    const end = at(t, 18);
+    if (t >= end) { t = nextDay9(t); continue; }
+    const avail = (end - t) / 60000;
+    if (left <= avail) { t = new Date(t.getTime() + left * 60000); left = 0; }
+    else { left -= avail; t = nextDay9(t); }
+  }
+  return new Date(t.getTime() - KST).toISOString();
+}
+
+// 접속 위치를 그대로 저장하지 않고 한 방향 암호로 바꿔 둔다 (제출 제한용)
+function ipHash(req) {
+  const ip = String(req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || '').split(',')[0].trim() || 'unknown';
+  return require('node:crypto').createHash('sha256').update(ip + '|' + String(SB_KEY).slice(-16)).digest('hex').slice(0, 32);
+}
+
+// 접수번호: 고객사코드-년도-일련번호 (신규 문의는 NEW)
+async function nextPublicNo(prefix) {
+  const year = new Date(Date.now() + 9 * 3600000).getUTCFullYear();
+  const r = await fetch(`${SB_URL}/rest/v1/rpc/next_request_no`, { method: 'POST', headers: sbHeaders(), body: JSON.stringify({ p_prefix: prefix, p_year: year }) });
+  if (!r.ok) return null;
+  const n = await r.json();
+  return `${prefix}-${year}-${String(n).padStart(4, '0')}`;
+}
+const codeOf = (c) => (c && c.code) || (c ? 'C' + String(c.id).padStart(3, '0') : 'NEW');
+
+// 본문(글 조각 + 이미지)에서 글만 뽑기
+const bodyText = (segments) => (Array.isArray(segments) ? segments.filter((s) => s.t === 'text').map((s) => s.v).join('').trim() : '');
+
+// 올릴 수 있는 파일: 확장자 → 형식
+const FILE_TYPES = {
+  png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', pdf: 'application/pdf', txt: 'text/plain', log: 'text/plain', csv: 'text/csv',
+  xls: 'application/vnd.ms-excel', xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  doc: 'application/msword', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  ppt: 'application/vnd.ms-powerpoint', pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  hwp: 'application/x-hwp', hwpx: 'application/vnd.hancom.hwpx', zip: 'application/zip',
+};
+const PENDING_RE = /^pending\/\d{4}-\d{2}\/[0-9a-f-]{36}\.(png|jpe?g|pdf|txt|log|csv|xlsx?|docx?|pptx?|hwpx?|zip)$/;
+
+// 본문 이미지·첨부파일을 1시간짜리 임시 주소로 바꿔 준다
+async function signFiles(rows) {
+  const paths = [...new Set(rows.flatMap((r) => [
+    ...(Array.isArray(r.body) ? r.body.filter((s) => s.t === 'img').map((s) => s.p) : []),
+    ...((r.attachments || []).map((a) => a.p)),
+  ]))].filter(Boolean);
+  if (!paths.length) return rows;
+  const s = await fetch(`${SB_URL}/storage/v1/object/sign/${FILE_BUCKET}`, { method: 'POST', headers: sbHeaders(), body: JSON.stringify({ expiresIn: 3600, paths }) });
+  const map = {};
+  if (s.ok) for (const x of await s.json()) if (x.signedURL) map[x.path] = `${SB_URL}/storage/v1${x.signedURL}`;
+  return rows.map((r) => ({
+    ...r,
+    body: Array.isArray(r.body) ? r.body.map((x) => (x.t === 'img' ? { t: 'img', url: map[x.p] || null } : x)) : r.body,
+    attachments: (r.attachments || []).map((a) => ({ name: a.name, size: a.size, url: map[a.p] || null })),
+  }));
+}
 
 const sbHeaders = () => ({
   apikey: SB_KEY,
@@ -58,7 +137,7 @@ function newToken() {
 // 쓰고 있는 고객사만 돌려준다 (사용 중지했거나 없으면 null)
 async function customerByToken(token) {
   if (!TOKEN_RE.test(String(token || ''))) return null;
-  const r = await fetch(`${SB_URL}/rest/v1/customers?token=eq.${token}&active=is.true&select=id,name`, { headers: sbHeaders() });
+  const r = await fetch(`${SB_URL}/rest/v1/customers?token=eq.${token}&active=is.true&select=id,name,code`, { headers: sbHeaders() });
   if (!r.ok) return null;
   const [c] = await r.json();
   return c || null;
@@ -71,4 +150,4 @@ async function membershipOf(userId) {
   return m ? { id: m.customer_id, name: m.customers && m.customers.name } : null;
 }
 
-module.exports = { newToken, customerByToken, membershipOf, SB_URL, SB_KEY, SB_ANON, TABLE, BUCKET, STATUSES, KINDS, URGENCIES, sbHeaders, readBody, getUser, signImages };
+module.exports = { FILE_BUCKET, PRIORITIES, CATEGORIES, CAUSES, BILLINGS, MODES, CHANNELS, custStatus, priorityOf, respondBy, ipHash, nextPublicNo, codeOf, bodyText, FILE_TYPES, PENDING_RE, signFiles, newToken, customerByToken, membershipOf, SB_URL, SB_KEY, SB_ANON, TABLE, BUCKET, STATUSES, KINDS, URGENCIES, sbHeaders, readBody, getUser, signImages };

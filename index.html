@@ -48,6 +48,7 @@
 
     <div>
     <form id="form" novalidate>
+      <p class="notice">계정·비밀번호·주민등록번호 같은 민감한 정보와 고객사의 기밀 자료는 적지 마세요. 화면 캡처에 보이지 않는지도 확인해 주세요.</p>
       <div class="row2">
         <div class="field">
           <label for="company">회사 이름 <span class="req">*</span></label>
@@ -56,12 +57,19 @@
         </div>
         <div class="field">
           <label for="name">이름 <span class="req">*</span></label>
-          <input type="text" id="name" name="name" maxlength="50" autocomplete="name" required>
+          <input type="text" id="name" name="name" maxlength="30" autocomplete="name" required>
         </div>
       </div>
-      <div class="field">
-        <label for="contact">연락처 <span class="req">*</span></label>
-        <input type="text" id="contact" name="contact" maxlength="100" placeholder="전화번호 또는 이메일" required>
+      <div class="row2">
+        <div class="field">
+          <label for="email">이메일 <span class="req">*</span></label>
+          <input type="email" id="email" name="email" maxlength="100" autocomplete="email" required>
+          <p class="hint">처리가 끝나면 이 주소로 알려 드려요.</p>
+        </div>
+        <div class="field">
+          <label for="phone">전화 <span class="hint" style="margin:0">선택</span></label>
+          <input type="tel" id="phone" name="phone" maxlength="20" autocomplete="tel" placeholder="010-0000-0000">
+        </div>
       </div>
 
       <div class="field" id="programField">
@@ -89,18 +97,9 @@
       </div>
 
       <div class="field">
-        <label for="message">무슨 일이 있었나요? <span class="req">*</span></label>
-        <textarea id="message" name="message" maxlength="3000" placeholder="예) 오늘 아침부터 주문 화면에서 [저장]을 누르면 오류 창이 떠요." required></textarea>
-      </div>
-
-      <div class="field">
-        <span class="label">화면 캡처 <span class="hint" style="margin:0">최대 3장</span></span>
-        <div class="drop" id="drop">
-          <button type="button" class="btn line" id="pick">사진·캡처 고르기</button>
-          <div class="hint">PC에서는 캡처한 뒤 이 화면에서 Ctrl+V로 붙여 넣어도 돼요.</div>
-          <input type="file" id="file" accept="image/*" multiple hidden>
-        </div>
-        <div class="thumbs" id="thumbs"></div>
+        <span class="label" id="bodyLabel">무슨 일이 있었나요? <span class="req">*</span></span>
+        <div id="editor"></div>
+        <div class="similar" id="similar" hidden></div>
       </div>
 
       <div class="trap" aria-hidden="true">
@@ -109,7 +108,7 @@
 
       <label class="consent">
         <input type="checkbox" id="consent">
-        <span>(필수) 요청 처리를 위해 회사 이름·이름·연락처·요청 내용·화면 캡처를 수집·이용하는 데 동의해요. 보관 기간 등은 <a href="/privacy" target="_blank">개인정보 처리방침</a>을 따라요.</span>
+        <span>(필수) 요청 처리를 위해 회사 이름·이름·이메일·전화·요청 내용·첨부 이미지와 파일을 수집·이용하는 데 동의해요. 보관 기간 등은 <a href="/privacy" target="_blank">개인정보 처리방침</a>을 따라요.</span>
       </label>
 
       <div class="msg err" id="err" role="alert" hidden></div>
@@ -132,29 +131,35 @@
   <div><a href="/privacy">개인정보 처리방침</a></div>
 </div></footer>
 
+<script src="/assets/editor.js"></script>
 <script>
 (function () {
   const S = window.SITE || {};
   const $ = (id) => document.getElementById(id);
   const form = $('form');
-  const MAX = 3;
-  let shots = []; // { data: base64, url: 미리보기 }
+  const esc = (s) => String(s).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 
   // 프로그램 목록이 있으면 고르는 칸으로
   if (Array.isArray(S.programs) && S.programs.length) {
     const sel = document.createElement('select');
     sel.id = 'program'; sel.name = 'program'; sel.required = true;
-    sel.innerHTML = '<option value="">골라 주세요</option>'
-      + S.programs.map((p) => `<option>${p.replace(/</g, '&lt;')}</option>`).join('')
-      + '<option value="기타">기타</option>';
+    sel.innerHTML = '<option value="">골라 주세요</option>' + S.programs.map((p) => `<option>${esc(p)}</option>`).join('') + '<option value="기타">기타</option>';
     $('program').replaceWith(sel);
   }
 
-  // 로그인 상태면 안내 문구를 바꾼다
-  const sess = Auth.session();
-  const esc = (s) => String(s).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+  function showErr(t) { $('err').textContent = t; $('err').hidden = false; }
+  function hideErr() { $('err').hidden = true; }
 
-  // 고객사 전용 링크(/r/코드)로 들어왔는지 확인한다
+  // 본문 편집기
+  const editor = Editor.create($('editor'), {
+    label: '요청 내용',
+    placeholder: '예) 오늘 아침부터 주문 화면에서 [저장]을 누르면 오류 창이 떠요. (캡처는 여기에 Ctrl+V)',
+    onError: showErr,
+    onInput: () => checkSimilar(),
+  });
+
+  // 로그인 상태와 고객사 전용 링크(/r/코드)
+  const sess = Auth.session();
   const token = Auth.linkToken();
   let linkOk = false;
   if (token) {
@@ -163,7 +168,7 @@
       const d = await r.json().catch(() => ({}));
       const note = $('linkNote');
       if (!r.ok) {
-        note.textContent = d.error || '링크가 맞지 않아요. 받으신 링크를 확인하거나 전화 주세요.';
+        note.textContent = d.error || '유효하지 않은 링크입니다. 담당자에게 문의해 주세요.';
         note.classList.add('bad'); note.hidden = false;
         return;
       }
@@ -180,85 +185,48 @@
   } else if (sess) {
     $('loginHint').innerHTML = '로그인되어 있어요. 이 요청은 <a href="/my">내 요청 내역</a>에서 처리 상태를 볼 수 있어요.';
   }
+  if (sess && sess.email && !$('email').value) $('email').value = sess.email;
 
-  form.urgency.forEach((r) => r.addEventListener('change', () => {
-    $('stopHint').hidden = form.urgency.value !== '업무 중단 중';
-  }));
+  form.urgency.forEach((r) => r.addEventListener('change', () => { $('stopHint').hidden = form.urgency.value !== '업무 중단 중'; }));
 
-  // 캡처를 가볍게 줄여서(긴 쪽 1600px, JPEG) 보낸다
-  async function shrink(file) {
-    const img = await new Promise((ok, no) => {
-      const i = new Image();
-      i.onload = () => ok(i); i.onerror = no;
-      i.src = URL.createObjectURL(file);
-    });
-    const scale = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
-    const c = document.createElement('canvas');
-    c.width = Math.round(img.naturalWidth * scale);
-    c.height = Math.round(img.naturalHeight * scale);
-    const g = c.getContext('2d');
-    g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
-    g.drawImage(img, 0, 0, c.width, c.height);
-    URL.revokeObjectURL(img.src);
-    let q = 0.85, url = c.toDataURL('image/jpeg', q);
-    while (url.length > 1100000 && q > 0.4) { q -= 0.15; url = c.toDataURL('image/jpeg', q); }
-    return { url, data: url.split(',')[1] };
+  // 비슷한 요청 안내 (같은 고객사, 전용 링크일 때만)
+  let simTimer;
+  function checkSimilar() {
+    if (!linkOk) return;
+    clearTimeout(simTimer);
+    simTimer = setTimeout(async () => {
+      const q = (editor.text() + ' ' + (form.program.value || '')).trim();
+      if (q.length < 4) { $('similar').hidden = true; return; }
+      const r = await fetch(`/api/similar?t=${encodeURIComponent(token)}&q=${encodeURIComponent(q.slice(0, 500))}`).catch(() => null);
+      const d = r && r.ok ? await r.json() : { items: [] };
+      if (!d.items.length) { $('similar').hidden = true; return; }
+      $('similar').innerHTML = '<b>비슷한 요청이 이미 있어요. 같은 건이면 새로 남기지 않아도 돼요.</b><ul>'
+        + d.items.map((x) => `<li>${esc(x.no)} · ${esc(x.summary)} <span style="color:var(--muted)">(${esc(x.status)})</span></li>`).join('') + '</ul>';
+      $('similar').hidden = false;
+    }, 600);
   }
-
-  async function addFiles(list) {
-    hideErr();
-    const files = [...list].filter((f) => f.type.startsWith('image/'));
-    if (!files.length) return showErr('이미지 파일만 올릴 수 있어요.');
-    for (const f of files) {
-      if (shots.length >= MAX) { showErr('캡처는 3장까지 올릴 수 있어요.'); break; }
-      try { shots.push(await shrink(f)); } catch { showErr('이 파일은 열 수 없어요. 다른 캡처로 올려 주세요.'); }
-    }
-    drawThumbs();
-  }
-
-  function drawThumbs() {
-    $('thumbs').innerHTML = '';
-    shots.forEach((s, i) => {
-      const d = document.createElement('div');
-      d.className = 'thumb';
-      d.innerHTML = `<img src="${s.url}" alt="캡처 ${i + 1}"><button type="button" aria-label="캡처 ${i + 1} 빼기">×</button>`;
-      d.querySelector('button').onclick = () => { shots.splice(i, 1); drawThumbs(); };
-      $('thumbs').appendChild(d);
-    });
-    $('drop').hidden = shots.length >= MAX;
-  }
-
-  $('pick').onclick = () => $('file').click();
-  $('file').onchange = (e) => { addFiles(e.target.files); e.target.value = ''; };
-  const drop = $('drop');
-  drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('over'); });
-  drop.addEventListener('dragleave', () => drop.classList.remove('over'));
-  drop.addEventListener('drop', (e) => { e.preventDefault(); drop.classList.remove('over'); addFiles(e.dataTransfer.files); });
-  document.addEventListener('paste', (e) => {
-    if (form.hidden) return;
-    const files = [...(e.clipboardData?.files || [])].filter((f) => f.type.startsWith('image/'));
-    if (files.length) { e.preventDefault(); addFiles(files); }
-  });
-
-  function showErr(t) { $('err').textContent = t; $('err').hidden = false; }
-  function hideErr() { $('err').hidden = true; }
+  form.program.addEventListener('input', checkSimilar);
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     hideErr();
+    if (editor.busy()) return showErr('이미지나 파일을 올리는 중이에요. 끝나면 다시 눌러 주세요.');
+    const ed = editor.value();
     const v = {
-      company: form.company.value, name: $('name').value, contact: form.contact.value,
+      company: form.company.value, name: $('name').value, email: $('email').value.trim(), phone: $('phone').value.trim(),
       program: form.program.value, kind: form.kind.value, urgency: form.urgency.value,
+      body: ed.body, attachments: ed.attachments,
+      website: form.website.value, consent: $('consent').checked,
       t: linkOk ? token : undefined,
-      message: form.message.value, website: form.website.value,
-      consent: $('consent').checked,
-      images: shots.map((s) => s.data),
     };
-    if (!v.company.trim() || !v.name.trim() || !v.contact.trim()) return showErr('회사 이름, 이름, 연락처를 적어 주세요.');
+    if (!v.company.trim()) return showErr('회사 이름을 적어 주세요.');
+    if (!v.name.trim()) return showErr('이름을 입력해 주세요.');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.email)) return showErr('이메일 주소를 확인해 주세요.');
+    if (v.phone && !/^[0-9+\-() ]{0,20}$/.test(v.phone)) return showErr('전화번호 형식을 확인해 주세요.');
     if (!v.program.trim()) return showErr('어느 프로그램인지 적어 주세요.');
     if (!v.kind) return showErr('요청 종류를 골라 주세요.');
-    if (!v.message.trim()) return showErr('요청 내용을 적어 주세요.');
-    if (!v.consent) return showErr('개인정보 수집·이용에 동의해 주세요.');
+    if (!ed.text.trim() && !ed.images) return showErr('요청 내용을 입력하거나 이미지를 붙여넣어 주세요.');
+    if (!v.consent) return showErr('개인정보 수집 안내에 동의해 주세요.');
 
     const btn = $('submit');
     btn.disabled = true; btn.textContent = '보내는 중…';
@@ -269,10 +237,10 @@
       const r = await fetch('/api/request', { method: 'POST', headers, body: JSON.stringify(v) });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(d.error || '보내지 못했어요. 잠시 뒤 다시 시도해 주세요.');
-      $('doneNum').textContent = d.id ? `접수 번호 #${d.id}` : '';
+      $('doneNum').textContent = d.no || '';
       $('doneMore').innerHTML = s
         ? '처리 상태는 <a href="/my">내 요청 내역</a>에서 볼 수 있어요.'
-        : '전화로 물어보실 땐 접수 번호를 알려 주세요.';
+        : '전화로 물어보실 땐 접수번호를 알려 주세요.';
       form.hidden = true; $('done').hidden = false;
       $('request').scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (err) {
@@ -283,8 +251,8 @@
   });
 
   $('again').onclick = () => {
-    form.message.value = ''; form.kind.forEach((r) => { r.checked = false; });
-    shots = []; drawThumbs();
+    editor.reset(); form.kind.forEach((r) => { r.checked = false; });
+    $('similar').hidden = true;
     $('done').hidden = true; form.hidden = false;
   };
 })();
