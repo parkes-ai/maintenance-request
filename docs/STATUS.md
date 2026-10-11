@@ -35,6 +35,11 @@
 - **월별 정리**: 고객사별 건수 · 처리 시간 · 무료로 처리한 시간 · 원인/유형별 · 답변 기한 지킨 비율 · 승인 현황 → **월 응대 보고서**(인쇄·PDF 저장)
 - 그 밖에(예전부터): 48시간 알림 · 30일 추이 · 검색 · 메모 · CSV · 수정 · 변경 기록 · 삭제 · 회원 탭
 
+## 메뉴얼
+- 고객용: /guide (첫 화면 하단·요청 화면에 링크)
+- 관리자용: /admin/guide (관리자 화면 오른쪽 위 "사용법")
+- 그림: assets/guide/ (예시 데이터로 찍음. 화면이 바뀌면 다시 찍어야 함)
+
 ## 사용자가 직접 해야 남은 일
 1. **Supabase 로그인 설정** (회원가입을 쓰려면 꼭 필요): Vercel → Storage → supabase-coquelicot-castle → Open in Supabase → Authentication → URL Configuration → Site URL에 사이트 주소 → Save
 2. **완료 메일을 쓰려면**: 내 도메인 준비 → Resend 가입 → 도메인 인증 → Vercel 환경변수 `RESEND_API_KEY`, `MAIL_FROM`(예: `알림 <no-reply@내도메인>`) 넣고 다시 배포

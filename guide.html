@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>이용 안내</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500&family=Noto+Serif+KR:wght@300;400&family=Space+Grotesk:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap">
+<link rel="stylesheet" href="/assets/style.css">
+<script src="/assets/config.js"></script>
+<script src="/assets/auth.js"></script>
+</head>
+<body>
+<header class="mast"><div class="wrap">
+  <a class="brand" href="/"><b data-site-name>유지보수 요청 접수</b><span class="mono">Maintenance Desk</span></a>
+  <nav class="nav" id="nav"></nav>
+</div></header>
+
+<main class="wrap read guide">
+  <p class="mono kicker">User Guide</p>
+  <h1 class="page-title">이용 안내</h1>
+  <p class="lead">프로그램에 문제가 생겼을 때 요청을 남기고, 처리 상태를 확인하는 방법이에요.</p>
+
+  <nav class="toc" aria-label="차례">
+    <a href="#s1">1. 요청 남기기</a>
+    <a href="#s2">2. 내용 쓰기 · 캡처 붙여넣기</a>
+    <a href="#s3">3. 접수번호 받기</a>
+    <a href="#s4">4. 회원가입 · 로그인</a>
+    <a href="#s5">5. 처리 상태 보기</a>
+    <a href="#s6">6. 유료 작업 동의</a>
+    <a href="#s7">7. 자주 묻는 것</a>
+  </nav>
+
+  <section id="s1">
+    <h2><span class="mono">01</span>요청 남기기</h2>
+    <ol class="steps">
+      <li>담당자에게 받은 <b>회사 전용 링크</b>를 열어요. 회사 이름이 자동으로 들어가 있어요.</li>
+      <li>전용 링크가 없으면 첫 화면에서 <b>회사 이름을 직접 적고</b> 요청할 수 있어요.</li>
+      <li>이름, <b>이메일(꼭 필요)</b>, 전화번호(적지 않아도 돼요), 프로그램 이름을 적어요.</li>
+      <li>요청 종류(오류 · 수정 요청 · 사용 문의)와 급한 정도(보통 · 급함 · 업무 중단 중)를 골라요.</li>
+    </ol>
+    <figure><img src="/assets/guide/c-home.png" alt="회사 전용 링크로 연 첫 화면" loading="lazy"><figcaption>전용 링크로 열면 회사 이름이 보여요.</figcaption></figure>
+    <figure><img src="/assets/guide/c-form.png" alt="요청 남기기 화면" loading="lazy"><figcaption>요청 화면. 별표(*)가 있는 칸은 꼭 적어야 해요.</figcaption></figure>
+    <p class="tip">요청은 로그인하지 않아도 남길 수 있어요.</p>
+  </section>
+
+  <section id="s2">
+    <h2><span class="mono">02</span>내용 쓰기 · 캡처 붙여넣기</h2>
+    <ol class="steps">
+      <li><b>무슨 일이 있었나요?</b> 칸에 상황을 적어요. 언제부터, 어느 화면에서, 무엇을 눌렀을 때 생기는지 적어 주면 빨리 확인할 수 있어요.</li>
+      <li>화면을 캡처한 뒤 내용 칸에서 <b>Ctrl+V</b>를 누르면 글 사이에 그림이 들어가요. <b>이미지 넣기</b> 버튼으로 골라 넣어도 돼요.</li>
+      <li>엑셀 · 문서 · 로그 같은 파일은 <b>파일 첨부</b> 버튼으로 붙여요.</li>
+      <li>아래 동의 칸에 체크하고 <b>요청 보내기</b>를 눌러요.</li>
+    </ol>
+    <figure><img src="/assets/guide/c-editor.png" alt="내용 칸에 글과 캡처 이미지가 들어간 모습" loading="lazy"><figcaption>메일을 쓰듯 글과 캡처를 함께 넣을 수 있어요.</figcaption></figure>
+    <ul class="facts">
+      <li>그림은 5장까지, 첨부파일은 5개까지 넣을 수 있어요. 파일 하나는 10MB까지예요.</li>
+      <li>같은 회사에서 최근에 남긴 비슷한 요청이 있으면 내용 칸 아래에 알려 드려요. 이미 접수된 건이면 다시 보내지 않아도 돼요.</li>
+      <li>짧은 시간에 여러 번 보내면 잠시 막혀요. 조금 뒤 다시 보내 주세요.</li>
+    </ul>
+    <p class="warn">계정 · 비밀번호 · 주민등록번호 같은 민감한 정보는 적지 마세요. 캡처에 보이지 않는지도 확인해 주세요.</p>
+  </section>
+
+  <section id="s3">
+    <h2><span class="mono">03</span>접수번호 받기</h2>
+    <p>보내면 바로 <b>접수번호</b>가 나와요(예: C001-2026-0004). 전화나 메일로 물어보실 때 이 번호를 알려 주세요.</p>
+    <figure><img src="/assets/guide/c-done.png" alt="요청이 접수됐어요 화면과 접수번호" loading="lazy"><figcaption>접수 완료 화면</figcaption></figure>
+  </section>
+
+  <section id="s4">
+    <h2><span class="mono">04</span>회원가입 · 로그인</h2>
+    <p>처리 상태를 보려면 회원가입이 필요해요. <b>회사 전용 링크에서 가입하거나 로그인</b>하면, 그 회사가 남긴 요청을 모두 볼 수 있어요.</p>
+    <ol class="steps">
+      <li>전용 링크 화면의 <b>이 링크에서 회원가입</b>을 눌러요.</li>
+      <li>이메일과 비밀번호(8자 이상)를 적고 <b>가입하기</b>를 눌러요.</li>
+      <li>확인 메일이 오면 메일 안의 링크를 누른 뒤 로그인해요.</li>
+    </ol>
+    <figure><img src="/assets/guide/c-signup.png" alt="회원가입 화면" loading="lazy"><figcaption>전용 링크에서 열면 어느 회사 담당자로 가입하는지 보여요.</figcaption></figure>
+    <p class="tip">비밀번호를 잊으면 로그인 화면의 <b>비밀번호를 잊었어요</b>를 눌러 새로 정할 수 있어요.</p>
+  </section>
+
+  <section id="s5">
+    <h2><span class="mono">05</span>처리 상태 보기</h2>
+    <p>로그인한 뒤 위쪽 메뉴의 <b>내 요청 내역</b>을 눌러요.</p>
+    <figure><img src="/assets/guide/c-my.png" alt="내 요청 내역 화면" loading="lazy"><figcaption>요청마다 접수번호, 상태, 보낸 내용과 첨부가 보여요.</figcaption></figure>
+    <table class="g-table">
+      <thead><tr><th>상태</th><th>뜻</th></tr></thead>
+      <tbody>
+        <tr><td><b>접수됨</b></td><td>요청이 들어왔고 담당자가 확인하고 있어요.</td></tr>
+        <tr><td><b>처리 중</b></td><td>담당자가 작업하고 있어요.</td></tr>
+        <tr><td><b>확인 필요</b></td><td>잠시 멈춘 상태예요. 자료나 답변이 필요하면 연락드려요.</td></tr>
+        <tr><td><b>완료</b></td><td>처리가 끝났어요.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="s6">
+    <h2><span class="mono">06</span>유료 작업 동의</h2>
+    <p>비용이 드는 작업이면, 시작하기 전에 <b>예상 작업 시간과 내용</b>을 먼저 보내 드려요. 내 요청 내역에서 확인하고 골라 주세요.</p>
+    <figure><img src="/assets/guide/c-approve.png" alt="유료 작업 동의 요청 상자" loading="lazy"><figcaption><b>진행 동의</b>를 누르면 작업을 시작해요. <b>동의하지 않음</b>을 누르면 진행하지 않아요.</figcaption></figure>
+  </section>
+
+  <section id="s7">
+    <h2><span class="mono">07</span>자주 묻는 것</h2>
+    <dl class="faq">
+      <dt>링크가 맞지 않다고 나와요.</dt>
+      <dd>링크가 바뀌었거나 더 이상 쓰지 않는 링크예요. 담당자에게 새 링크를 받아 주세요.</dd>
+      <dt>내 요청 내역에 요청이 안 보여요.</dt>
+      <dd>회사 전용 링크에서 로그인해야 회사 요청이 모두 보여요. 링크 없이 가입했다면 전용 링크를 연 뒤 다시 로그인해 주세요.</dd>
+      <dt>탈퇴는 어떻게 하나요?</dt>
+      <dd>내 요청 내역 맨 아래 <b>회원 탈퇴</b>에서 비밀번호를 넣으면 바로 지워져요. 이미 남긴 요청은 처리를 위해 <a href="/privacy">개인정보 처리방침</a>의 보관 기간 동안 남아 있어요.</dd>
+      <dt>요청은 얼마나 보관되나요?</dt>
+      <dd>처리가 완료된 날부터 1년 뒤 자동으로 지워져요.</dd>
+    </dl>
+    <p><a class="btn" href="/">요청 남기러 가기</a></p>
+  </section>
+</main>
+
+<footer class="foot"><div class="wrap">
+  <div><a href="/privacy">개인정보 처리방침</a></div>
+</div></footer>
+</body>
+</html>
