@@ -317,3 +317,6 @@ p.tel span:last-child { font-family: var(--sans); font-size: 15px; letter-spacin
 .ap-btns { display: flex; flex-wrap: wrap; gap: 8px; }
 .ap-btns .btn { min-height: 44px; font-size: 15px; padding: 0 18px; }
 .approved { font-size: 14px; color: var(--muted); margin: 4px 0 0; }
+
+/* 전용 링크: 회사 이름을 칸 대신 글로 */
+.fixed-val { margin: 0; min-height: 52px; display: flex; align-items: center; padding: 0 2px; border-bottom: 1px solid var(--line); font-size: 17px; font-weight: 600; color: var(--ink); }

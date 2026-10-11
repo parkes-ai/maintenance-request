@@ -51,9 +51,10 @@
       <p class="notice">계정·비밀번호·주민등록번호 같은 민감한 정보와 고객사의 기밀 자료는 적지 마세요. 화면 캡처에 보이지 않는지도 확인해 주세요.</p>
       <div class="row2">
         <div class="field">
-          <label for="company">회사 이름 <span class="req">*</span></label>
+          <label for="company">회사 이름 <span class="req" id="companyReq">*</span></label>
           <input type="text" id="company" name="company" maxlength="100" autocomplete="organization" required>
-          <p class="hint" id="companyHint" hidden>전용 링크로 들어와서 자동으로 입력됐어요.</p>
+          <p class="fixed-val" id="companyFixed" hidden></p>
+          <p class="hint" id="companyHint" hidden>전용 링크라서 회사가 자동으로 정해져요.</p>
         </div>
         <div class="field">
           <label for="name">이름 <span class="req">*</span></label>
@@ -174,7 +175,8 @@
       }
       linkOk = true;
       $('kicker').textContent = d.name; $('kicker').classList.add('ko');
-      $('company').value = d.name; $('company').readOnly = true; $('companyHint').hidden = false;
+      $('company').value = d.name; $('company').hidden = true; $('companyReq').hidden = true;
+      $('companyFixed').textContent = d.name; $('companyFixed').hidden = false; $('companyHint').hidden = false;
       note.innerHTML = `<b>${esc(d.name)}</b> 전용 접수 페이지예요.`; note.hidden = false;
       const q = encodeURIComponent(token);
       $('loginHint').innerHTML = sess
